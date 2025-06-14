@@ -1254,7 +1254,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         return count
 
 
-class EZDLNA:
+class ZeroConfigDLNA:
     def __init__(self, media_directory=None, port=8200):
         self.name = SERVER_NAME
         self.version = SERVER_VERSION
@@ -1394,7 +1394,7 @@ def main():
 
     args = parser.parse_args()
 
-    server = EZDLNA(media_directory=args.directory, port=args.port)
+    server = ZeroConfigDLNA(media_directory=args.directory, port=args.port)
     server.run()
 
 
