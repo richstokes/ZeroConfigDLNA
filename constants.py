@@ -1,5 +1,5 @@
 SERVER_NAME = "ZeroConfigDLNA"
-SERVER_DESCRIPTION = "Zero Configuration DLNA Server"
+SERVER_DESCRIPTION = "ZeroConfigDLNA Server"
 SERVER_VERSION = "1.0.0"
 SERVER_MANUFACTURER = "richstokes"
 SERVER_AGENT = "ZeroConfigDLNA/1.0 DLNA/1.50 UPnP/1.0"

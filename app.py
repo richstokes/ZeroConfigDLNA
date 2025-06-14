@@ -30,7 +30,7 @@ class ZeroConfigDLNA:
         self.port = port
         self.server = None
         self.server_thread = None
-        self.device_uuid = str(uuid.uuid4())
+        self.device_uuid = "65da942e-1984-4309-b2d5-553e23293c65"  # Keep a consistent UUID to avoid showing multiple devices in clients
         self.server_ip = self.get_local_ip()
         self.running = False
         self.ssdp_server = SSDPServer(self)
