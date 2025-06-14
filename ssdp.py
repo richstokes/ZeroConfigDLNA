@@ -1,5 +1,3 @@
-import os
-import sys
 import socket
 import threading
 import time
@@ -12,7 +10,9 @@ import struct
 import select
 import html
 import traceback
-import argparse
+from constants import (
+    SERVER_AGENT,
+)
 
 
 class SSDPServer:
@@ -150,7 +150,7 @@ class SSDPServer:
             "DATE: {}\r\n"
             f"EXT:\r\n"
             f"LOCATION: {location}\r\n"
-            f"SERVER: EZDLNA/1.0 UPnP/1.0 DLNA/1.50\r\n"
+            f"SERVER: {SERVER_AGENT}\r\n"
             f"ST: {st}\r\n"
             f"USN: {usn}\r\n"
             "\r\n"
@@ -177,7 +177,7 @@ class SSDPServer:
                 "NT: upnp:rootdevice\r\n"
                 "NTS: ssdp:alive\r\n"
                 f"USN: uuid:{self.server_instance.device_uuid}::upnp:rootdevice\r\n"
-                f"SERVER: EZDLNA/1.0 UPnP/1.0 DLNA/1.50\r\n"
+                f"SERVER: {SERVER_AGENT}\r\n"
                 "\r\n"
             ),
             # Device UUID
@@ -189,7 +189,7 @@ class SSDPServer:
                 f"NT: uuid:{self.server_instance.device_uuid}\r\n"
                 "NTS: ssdp:alive\r\n"
                 f"USN: uuid:{self.server_instance.device_uuid}\r\n"
-                f"SERVER: EZDLNA/1.0 UPnP/1.0 DLNA/1.50\r\n"
+                f"SERVER: {SERVER_AGENT}\r\n"
                 "\r\n"
             ),
             # Media Server device type
@@ -201,7 +201,7 @@ class SSDPServer:
                 "NT: urn:schemas-upnp-org:device:MediaServer:1\r\n"
                 "NTS: ssdp:alive\r\n"
                 f"USN: uuid:{self.server_instance.device_uuid}::urn:schemas-upnp-org:device:MediaServer:1\r\n"
-                f"SERVER: EZDLNA/1.0 UPnP/1.0 DLNA/1.50\r\n"
+                f"SERVER: {SERVER_AGENT}\r\n"
                 "\r\n"
             ),
             # Content Directory service
@@ -213,7 +213,7 @@ class SSDPServer:
                 "NT: urn:schemas-upnp-org:service:ContentDirectory:1\r\n"
                 "NTS: ssdp:alive\r\n"
                 f"USN: uuid:{self.server_instance.device_uuid}::urn:schemas-upnp-org:service:ContentDirectory:1\r\n"
-                f"SERVER: EZDLNA/1.0 UPnP/1.0 DLNA/1.50\r\n"
+                f"SERVER: {SERVER_AGENT}\r\n"
                 "\r\n"
             ),
             # Connection Manager service
@@ -225,7 +225,7 @@ class SSDPServer:
                 "NT: urn:schemas-upnp-org:service:ConnectionManager:1\r\n"
                 "NTS: ssdp:alive\r\n"
                 f"USN: uuid:{self.server_instance.device_uuid}::urn:schemas-upnp-org:service:ConnectionManager:1\r\n"
-                f"SERVER: EZDLNA/1.0 UPnP/1.0 DLNA/1.50\r\n"
+                f"SERVER: {SERVER_AGENT}\r\n"
                 "\r\n"
             ),
         ]
