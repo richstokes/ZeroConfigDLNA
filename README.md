@@ -1,5 +1,5 @@
 # ZeroConfigDLNA
-Run one command, serve media to your TV! Clone/download the repo and run: 
+Run one command, serve media to your TV! Clone/download this repo and run: 
 
 `python app.py`  
 
