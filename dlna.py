@@ -990,6 +990,192 @@ class DLNAHandler(BaseHTTPRequestHandler):
             traceback.print_exc()
             self.send_error(500, "Internal server error")
 
+    def handle_get_protocol_info(self):
+        """Handle ConnectionManager GetProtocolInfo requests"""
+        try:
+            print("Handling GetProtocolInfo request")
+
+            # Define supported protocols
+            source_protocols = [
+                "http-get:*:video/mp4:DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/x-msvideo:DLNA.ORG_PN=AVI;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/x-matroska:DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/wav:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+                "http-get:*:image/png:DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+            ]
+
+            source_info = ",".join(source_protocols)
+            sink_info = ""  # This server doesn't act as a sink
+
+            response = f"""<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:GetProtocolInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
+            <Source>{source_info}</Source>
+            <Sink>{sink_info}</Sink>
+        </u:GetProtocolInfoResponse>
+    </s:Body>
+</s:Envelope>"""
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response.encode())
+            print("Sent GetProtocolInfo response")
+
+        except Exception as e:
+            print(f"Error handling GetProtocolInfo: {e}")
+            traceback.print_exc()
+            self.send_error(500, "Internal server error")
+
+    def handle_get_current_connection_ids(self):
+        """Handle ConnectionManager GetCurrentConnectionIDs requests"""
+        try:
+            print("Handling GetCurrentConnectionIDs request")
+
+            response = """<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:GetCurrentConnectionIDsResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
+            <ConnectionIDs>0</ConnectionIDs>
+        </u:GetCurrentConnectionIDsResponse>
+    </s:Body>
+</s:Envelope>"""
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response.encode())
+            print("Sent GetCurrentConnectionIDs response")
+
+        except Exception as e:
+            print(f"Error handling GetCurrentConnectionIDs: {e}")
+            traceback.print_exc()
+            self.send_error(500, "Internal server error")
+
+    def handle_get_current_connection_info(self):
+        """Handle ConnectionManager GetCurrentConnectionInfo requests"""
+        try:
+            print("Handling GetCurrentConnectionInfo request")
+
+            response = """<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:GetCurrentConnectionInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
+            <RcsID>-1</RcsID>
+            <AVTransportID>-1</AVTransportID>
+            <ProtocolInfo></ProtocolInfo>
+            <PeerConnectionManager></PeerConnectionManager>
+            <PeerConnectionID>-1</PeerConnectionID>
+            <Direction>Output</Direction>
+            <Status>OK</Status>
+        </u:GetCurrentConnectionInfoResponse>
+    </s:Body>
+</s:Envelope>"""
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response.encode())
+            print("Sent GetCurrentConnectionInfo response")
+
+        except Exception as e:
+            print(f"Error handling GetCurrentConnectionInfo: {e}")
+            traceback.print_exc()
+            self.send_error(500, "Internal server error")
+
+    def handle_get_search_capabilities(self):
+        """Handle ContentDirectory GetSearchCapabilities requests"""
+        try:
+            print("Handling GetSearchCapabilities request")
+
+            # Define basic search capabilities
+            search_caps = "dc:title,dc:creator,upnp:class,upnp:genre,dc:date"
+
+            response = f"""<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:GetSearchCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
+            <SearchCaps>{search_caps}</SearchCaps>
+        </u:GetSearchCapabilitiesResponse>
+    </s:Body>
+</s:Envelope>"""
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response.encode())
+            print("Sent GetSearchCapabilities response")
+
+        except Exception as e:
+            print(f"Error handling GetSearchCapabilities: {e}")
+            traceback.print_exc()
+            self.send_error(500, "Internal server error")
+
+    def handle_get_sort_capabilities(self):
+        """Handle ContentDirectory GetSortCapabilities requests"""
+        try:
+            print("Handling GetSortCapabilities request")
+
+            # Define basic sort capabilities
+            sort_caps = "dc:title,dc:creator,dc:date,upnp:class"
+
+            response = f"""<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:GetSortCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
+            <SortCaps>{sort_caps}</SortCaps>
+        </u:GetSortCapabilitiesResponse>
+    </s:Body>
+</s:Envelope>"""
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response.encode())
+            print("Sent GetSortCapabilities response")
+
+        except Exception as e:
+            print(f"Error handling GetSortCapabilities: {e}")
+            traceback.print_exc()
+            self.send_error(500, "Internal server error")
+
+    def handle_get_system_update_id(self):
+        """Handle ContentDirectory GetSystemUpdateID requests"""
+        try:
+            print("Handling GetSystemUpdateID request")
+
+            # Simple incrementing ID - in a real implementation, this would change when content changes
+            system_update_id = "1"
+
+            response = f"""<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+    <s:Body>
+        <u:GetSystemUpdateIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
+            <Id>{system_update_id}</Id>
+        </u:GetSystemUpdateIDResponse>
+    </s:Body>
+</s:Envelope>"""
+
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response.encode())
+            print("Sent GetSystemUpdateID response")
+
+        except Exception as e:
+            print(f"Error handling GetSystemUpdateID: {e}")
+            traceback.print_exc()
+            self.send_error(500, "Internal server error")
+
     def handle_browse_request(self, soap_data):
         """Handle ContentDirectory Browse requests"""
         try:
