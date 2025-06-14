@@ -18,6 +18,40 @@ from constants import (
 )
 
 
+def is_safe_path(base_dir, requested_path):
+    """
+    Verify that the requested path is contained within the base directory.
+    This is a security measure to prevent directory traversal attacks.
+
+    Args:
+        base_dir: The allowed base directory (media_directory)
+        requested_path: The path requested by the client
+
+    Returns:
+        bool: True if the path is safe, False otherwise
+    """
+    # Normalize paths (handle case sensitivity, symbolic links, etc.)
+    base_dir = os.path.normcase(os.path.normpath(os.path.realpath(base_dir)))
+
+    # Use abspath first to handle relative paths before realpath resolves symlinks
+    requested_abspath = os.path.abspath(requested_path)
+    requested_path = os.path.normcase(
+        os.path.normpath(os.path.realpath(requested_path))
+    )
+
+    # First quick check - if no common prefix, definitely unsafe
+    if not os.path.commonprefix([base_dir, requested_path]) == base_dir:
+        return False
+
+    # For more accuracy, use commonpath if available (Python 3.5+)
+    try:
+        return os.path.commonpath([base_dir, requested_path]) == base_dir
+    except (ValueError, AttributeError):
+        # Fallback for older Python or if paths are on different drives
+        rel_path = os.path.relpath(requested_path, base_dir)
+        return not rel_path.startswith(os.pardir) and not os.path.isabs(rel_path)
+
+
 class DLNAHandler(BaseHTTPRequestHandler):
     def __init__(self, server_instance, *args, **kwargs):
         self.server_instance = server_instance
@@ -547,10 +581,13 @@ class DLNAHandler(BaseHTTPRequestHandler):
             )
 
             # Security check: ensure requested directory is within media directory
-            real_path = os.path.realpath(current_full_path)
-            real_media_dir = os.path.realpath(self.server_instance.media_directory)
-            if not real_path.startswith(real_media_dir):
+            if not is_safe_path(
+                self.server_instance.media_directory, current_full_path
+            ):
                 self.send_error(403, "Access denied")
+                print(
+                    f"SECURITY WARNING: Attempted directory traversal to {current_full_path}"
+                )
                 return
 
             # Make sure path exists
@@ -706,10 +743,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 return
 
             # Security check: ensure file is within media directory
-            real_path = os.path.realpath(file_path)
-            real_media_dir = os.path.realpath(self.server_instance.media_directory)
-            if not real_path.startswith(real_media_dir):
+            if not is_safe_path(self.server_instance.media_directory, file_path):
                 self.send_error(403, "Access denied")
+                print(f"SECURITY WARNING: Attempted directory traversal to {file_path}")
                 return
 
             mime_type, _ = mimetypes.guess_type(file_path)
