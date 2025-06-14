@@ -1,0 +1,4 @@
+SERVER_NAME = "ZeroConfigDLNA"
+SERVER_DESCRIPTION = "Zero Configuration DLNA Server"
+SERVER_VERSION = "1.0.0"
+SERVER_MANUFACTURER = "richstokes"
