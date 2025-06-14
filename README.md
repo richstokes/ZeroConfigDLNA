@@ -12,7 +12,7 @@ This project uses features from the Python standard library. No other packages/s
 
 
 ### Why?
-I wanted something quick and easy that would let me share videos from my laptop to my TV. Most DLNA/media server implementations I tried seemed to be extremely over-complicated, needed tons of configuration, or were heavyweight with various other features bolted on.  
+I wanted something quick and easy that would let me share videos from my laptop to my TV. The DLNA/media server implementations I tried seemed to be extremely over-complicated, needed tons of configuration, or were heavyweight with various other features bolted on.  
 
 By contrast, `ZeroConfigDLNA` has nothing to configure. You simply run it and it appears as a media server on your TV.  
 
