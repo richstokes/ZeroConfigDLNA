@@ -22,76 +22,167 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests for media files and DLNA control"""
-        parsed_path = urlparse(self.path)
-        path = unquote(parsed_path.path)
+        try:
+            parsed_path = urlparse(self.path)
+            path = unquote(parsed_path.path)
 
-        print(f"GET request: {self.path} -> {path}")
-        print(f"Headers: {dict(self.headers)}")
+            print(f"GET request: {self.path} -> {path}")
+            print(f"Headers: {dict(self.headers)}")
 
-        if path == "/description.xml":
-            self.send_device_description()
-        elif path == "/cd_scpd.xml":
-            self.send_scpd_xml("ContentDirectory")
-        elif path == "/cm_scpd.xml":
-            self.send_scpd_xml("ConnectionManager")
-        elif path == "/browse":
-            self.send_browse_response()
-        elif path.startswith("/media/"):
-            print(f"Media request: {path[7:]}")
-            print(f"Client: {self.client_address}")
-            print(f"User-Agent: {self.headers.get('User-Agent', 'Unknown')}")
-            print(f"Range: {self.headers.get('Range', 'None')}")
-            self.serve_media_file(path[7:])  # Remove '/media/' prefix
-        else:
-            self.send_error(404, "File not found")
+            if path == "/description.xml":
+                self.send_device_description()
+            elif path == "/cd_scpd.xml":
+                self.send_scpd_xml("ContentDirectory")
+            elif path == "/cm_scpd.xml":
+                self.send_scpd_xml("ConnectionManager")
+            elif path == "/browse":
+                self.send_browse_response()
+            elif path.startswith("/media/"):
+                print(f"Media request: {path[7:]}")
+                print(f"Client: {self.client_address}")
+                print(f"User-Agent: {self.headers.get('User-Agent', 'Unknown')}")
+                print(f"Range: {self.headers.get('Range', 'None')}")
+                self.serve_media_file(path[7:])  # Remove '/media/' prefix
+            else:
+                self.send_error(404, "File not found")
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected during request processing
+            print(
+                f"Client {self.client_address} disconnected during GET request processing"
+            )
+            return
+        except Exception as e:
+            print(f"Error handling GET request: {str(e)}")
+            try:
+                self.send_error(500, f"Internal server error: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                # If sending the error also fails due to client disconnect, just log it
+                print("Client disconnected while sending error response")
+                return
 
     def do_HEAD(self):
         """Handle HEAD requests for media files (for DLNA compatibility)"""
-        parsed_path = urlparse(self.path)
-        path = unquote(parsed_path.path)
+        try:
+            parsed_path = urlparse(self.path)
+            path = unquote(parsed_path.path)
 
-        if path.startswith("/media/"):
-            self.serve_media_file(path[7:], head_only=True)  # Remove '/media/' prefix
-        else:
-            self.send_error(404, "File not found")
+            print(f"HEAD request: {self.path} -> {path}")
+            print(f"Headers: {dict(self.headers)}")
+
+            if path.startswith("/media/"):
+                self.serve_media_file(
+                    path[7:], head_only=True
+                )  # Remove '/media/' prefix
+            else:
+                self.send_error(404, "File not found")
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected during request processing
+            print(
+                f"Client {self.client_address} disconnected during HEAD request processing"
+            )
+            return
+        except Exception as e:
+            print(f"Error handling HEAD request: {str(e)}")
+            try:
+                self.send_error(500, f"Internal server error: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                # If sending the error also fails due to client disconnect, just log it
+                print("Client disconnected while sending error response")
+                return
 
     def do_POST(self):
         """Handle SOAP requests for DLNA control"""
-        if self.path == "/control":
-            content_length = int(self.headers.get("Content-Length", 0))
-            post_data = self.rfile.read(content_length)
-            soap_action = self.headers.get("SOAPAction", "").strip('"')
-            self.handle_soap_request(post_data, soap_action)
-        else:
-            self.send_error(404, "Not found")
+        try:
+            if self.path == "/control":
+                content_length = int(self.headers.get("Content-Length", 0))
+                post_data = self.rfile.read(content_length)
+                soap_action = self.headers.get("SOAPAction", "").strip('"')
+                self.handle_soap_request(post_data, soap_action)
+            else:
+                self.send_error(404, "Not found")
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected during request processing
+            print(
+                f"Client {self.client_address} disconnected during POST request processing"
+            )
+            return
+        except Exception as e:
+            print(f"Error handling POST request: {str(e)}")
+            try:
+                self.send_error(500, f"Internal server error: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                # If sending the error also fails due to client disconnect, just log it
+                print("Client disconnected while sending error response")
+                return
 
     def do_SUBSCRIBE(self):
         """Handle UPnP event subscription requests"""
-        if self.path == "/events":
-            self.handle_subscribe_request()
-        else:
-            self.send_error(404, "Not found")
+        try:
+            if self.path == "/events":
+                self.handle_subscribe_request()
+            else:
+                self.send_error(404, "Not found")
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected during request processing
+            print(
+                f"Client {self.client_address} disconnected during SUBSCRIBE request processing"
+            )
+            return
+        except Exception as e:
+            print(f"Error handling SUBSCRIBE request: {str(e)}")
+            try:
+                self.send_error(500, f"Internal server error: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                # If sending the error also fails due to client disconnect, just log it
+                print("Client disconnected while sending error response")
+                return
 
     def do_UNSUBSCRIBE(self):
         """Handle UPnP event unsubscription requests"""
-        if self.path == "/events":
-            self.handle_unsubscribe_request()
-        else:
-            self.send_error(404, "Not found")
+        try:
+            if self.path == "/events":
+                self.handle_unsubscribe_request()
+            else:
+                self.send_error(404, "Not found")
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected during request processing
+            print(
+                f"Client {self.client_address} disconnected during UNSUBSCRIBE request processing"
+            )
+            return
+        except Exception as e:
+            print(f"Error handling UNSUBSCRIBE request: {str(e)}")
+            try:
+                self.send_error(500, f"Internal server error: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                # If sending the error also fails due to client disconnect, just log it
+                print("Client disconnected while sending error response")
+                return
 
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""
-        self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header(
-            "Access-Control-Allow-Methods", "GET, POST, OPTIONS, SUBSCRIBE, UNSUBSCRIBE"
-        )
-        self.send_header(
-            "Access-Control-Allow-Headers",
-            "Content-Type, SOAPAction, CALLBACK, NT, TIMEOUT, SID",
-        )
-        self.send_header("Content-Length", "0")
-        self.end_headers()
+        try:
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header(
+                "Access-Control-Allow-Methods",
+                "GET, POST, OPTIONS, SUBSCRIBE, UNSUBSCRIBE",
+            )
+            self.send_header(
+                "Access-Control-Allow-Headers",
+                "Content-Type, SOAPAction, CALLBACK, NT, TIMEOUT, SID",
+            )
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected during request processing
+            print(
+                f"Client {self.client_address} disconnected during OPTIONS request processing"
+            )
+            return
+        except Exception as e:
+            print(f"Error handling OPTIONS request: {str(e)}")
+            # Don't try to send an error response for OPTIONS requests
 
     def send_device_description(self):
         """Send UPnP device description XML"""
@@ -536,10 +627,24 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 f"Serving file: {decoded_filename} (size: {file_size}, type: {mime_type}, head_only: {head_only})"
             )
 
+            # Log DLNA client info
+            client_addr = self.client_address
+            print(f"MEDIA ACCESS: {self.path} from {client_addr}")
+            print(f"MEDIA HEADERS: {dict(self.headers)}")
+
             # Handle range requests for video streaming
             range_header = self.headers.get("Range")
             if range_header and not head_only:
-                self.handle_range_request(file_path, file_size, mime_type, range_header)
+                try:
+                    self.handle_range_request(
+                        file_path, file_size, mime_type, range_header
+                    )
+                except (BrokenPipeError, ConnectionResetError):
+                    # Client disconnected, log and return without further error handling
+                    print(
+                        f"Client disconnected during range request for {decoded_filename}"
+                    )
+                    return
             else:
                 self.send_response(200)
                 self.send_header("Content-Type", mime_type)
@@ -587,12 +692,34 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
                 # Only send file content for GET requests, not HEAD
                 if not head_only:
-                    with open(file_path, "rb") as f:
-                        self.wfile.write(f.read())
+                    try:
+                        with open(file_path, "rb") as f:
+                            # Stream the file in chunks rather than loading it all into memory
+                            chunk_size = 8192  # 8KB chunks
+                            while True:
+                                chunk = f.read(chunk_size)
+                                if not chunk:
+                                    break
+                                self.wfile.write(chunk)
+                    except (BrokenPipeError, ConnectionResetError):
+                        # Client disconnected, log and exit gracefully
+                        print(
+                            f"Client disconnected during streaming of {decoded_filename}"
+                        )
+                        return
 
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected
+            print(f"Client disconnected before streaming of {decoded_filename} began")
+            return
         except Exception as e:
             print(f"Error serving file {filename}: {str(e)}")
-            self.send_error(500, f"Error serving file: {str(e)}")
+            try:
+                self.send_error(500, f"Error serving file: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                # If sending the error also fails due to client disconnect, just log it
+                print("Client disconnected while sending error response")
+                return
 
     def handle_range_request(self, file_path, file_size, mime_type, range_header):
         """Handle HTTP range requests for streaming"""
@@ -654,11 +781,39 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     chunk = f.read(chunk_size)
                     if not chunk:
                         break
-                    self.wfile.write(chunk)
-                    remaining -= len(chunk)
+                    try:
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
+                    except BrokenPipeError:
+                        # Client disconnected, log it and exit gracefully
+                        print(
+                            f"Client disconnected during streaming of {os.path.basename(file_path)}"
+                        )
+                        return
+                    except ConnectionResetError:
+                        # Connection reset by client
+                        print(
+                            f"Connection reset during streaming of {os.path.basename(file_path)}"
+                        )
+                        return
 
+        except BrokenPipeError:
+            # Client disconnected before we could send headers
+            print(
+                f"Client disconnected before streaming of {os.path.basename(file_path)} began"
+            )
+            return
         except Exception as e:
-            self.send_error(500, f"Error handling range request: {str(e)}")
+            # For other exceptions, log but don't try to send an error response as it might fail too
+            print(
+                f"Error handling range request for {os.path.basename(file_path)}: {str(e)}"
+            )
+            try:
+                self.send_error(500, f"Error handling range request: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                # If sending the error also fails due to client disconnect, just log it
+                print("Client disconnected while sending error response")
+                return
 
     def handle_soap_request(self, post_data, soap_action=""):
         """Handle SOAP requests for DLNA control"""
@@ -1217,16 +1372,23 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         """Override to provide custom logging"""
-        message = format % args
-        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}")
+        try:
+            message = format % args
+            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}")
 
-        # Log any unusual requests
-        if "404" in message or "500" in message:
-            print(f"ERROR REQUEST: {self.path} from {self.client_address}")
-            print(f"ERROR HEADERS: {dict(self.headers)}")
-        elif "/media/" in message:
-            print(f"MEDIA ACCESS: {self.path} from {self.client_address}")
-            print(f"MEDIA HEADERS: {dict(self.headers)}")
+            # Ignore broken pipe errors as they're handled elsewhere
+            if "Broken pipe" in message:
+                return
+
+            # Log any unusual requests
+            if "404" in message or "500" in message:
+                print(f"ERROR REQUEST: {self.path} from {self.client_address}")
+                print(f"ERROR HEADERS: {dict(self.headers)}")
+            # We already log media access in serve_media_file, so we can skip it here
+            # to avoid duplicate logs
+        except Exception as e:
+            # Catch any exceptions in logging so they don't propagate
+            print(f"Error in logging: {str(e)}")
 
     def _count_media_files(self):
         """Count all valid media files in the media directory (video, audio, image)"""
