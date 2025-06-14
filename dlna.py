@@ -555,9 +555,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 current_full_path
             ):
                 self.send_error(404, "Directory not found")
-                return
-
-            # Get directory contents
+                return            # Get directory contents
             items = []
             for item_name in os.listdir(current_full_path):
                 item_path = os.path.join(current_full_path, item_name)
@@ -1152,8 +1150,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
         try:
             print("Handling GetSystemUpdateID request")
 
-            # Simple incrementing ID - in a real implementation, this would change when content changes
-            system_update_id = "1"
+            # Generate a dynamic system update ID based on directory content to force cache refresh
+            import hashlib
+            content_hash = hashlib.md5(str(sorted(os.listdir(self.server_instance.media_directory))).encode()).hexdigest()[:8]
+            system_update_id = str(int(content_hash, 16) % 1000000)  # Keep it reasonable size
 
             response = f"""<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
@@ -1247,7 +1247,6 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print(
                     f"Browsing main media directory: {self.server_instance.media_directory}"
                 )
-
                 # Get direct children (files and folders) in the root media directory
                 children = []
                 for item_name in os.listdir(self.server_instance.media_directory):
@@ -1524,11 +1523,23 @@ class DLNAHandler(BaseHTTPRequestHandler):
     </s:Body>
 </s:Envelope>"""
 
+            # Generate a dynamic UpdateID based on directory content to force cache refresh
+            import hashlib
+            content_hash = hashlib.md5(str(sorted(os.listdir(self.server_instance.media_directory))).encode()).hexdigest()[:8]
+            update_id = int(content_hash, 16) % 1000000  # Keep it reasonable size
+            
+            # Replace the static UpdateID with dynamic one
+            response = response.replace("<UpdateID>1</UpdateID>", f"<UpdateID>{update_id}</UpdateID>")
+
             self.send_response(200)
             self.send_header("Content-Type", 'text/xml; charset="utf-8"')
             self.send_header("Content-Length", str(len(response)))
             self.send_header("Ext", "")
             self.send_header("Server", SERVER_AGENT)
+            # Add cache-busting headers
+            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
             self.end_headers()
             self.wfile.write(response.encode())
             print("Browse response sent")

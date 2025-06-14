@@ -30,7 +30,10 @@ class ZeroConfigDLNA:
         self.port = port
         self.server = None
         self.server_thread = None
-        self.device_uuid = "65da942e-1984-4309-b2d5-553e23293c65"  # Keep a consistent UUID to avoid showing multiple devices in clients
+        # Generate UUID based on media directory to force cache refresh when directory changes
+        import hashlib
+        path_hash = hashlib.md5(os.path.abspath(self.media_directory).encode()).hexdigest()
+        self.device_uuid = f"65da942e-1984-4309-b2d5-{path_hash[:12]}"
         self.server_ip = self.get_local_ip()
         self.running = False
         self.ssdp_server = SSDPServer(self)
