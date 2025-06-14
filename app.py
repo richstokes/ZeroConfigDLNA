@@ -32,7 +32,10 @@ class ZeroConfigDLNA:
         self.server_thread = None
         # Generate UUID based on media directory to force cache refresh when directory changes
         import hashlib
-        path_hash = hashlib.md5(os.path.abspath(self.media_directory).encode()).hexdigest()
+
+        path_hash = hashlib.md5(
+            os.path.abspath(self.media_directory).encode()
+        ).hexdigest()
         self.device_uuid = f"65da942e-1984-4309-b2d5-{path_hash[:12]}"
         self.server_ip = self.get_local_ip()
         self.running = False
