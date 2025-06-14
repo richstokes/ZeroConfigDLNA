@@ -197,7 +197,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         <friendlyName>{SERVER_NAME}</friendlyName>
         <manufacturer>{SERVER_MANUFACTURER}</manufacturer>
         <manufacturerURL>https://github.com/richstokes/ZeroConfigDLNA</manufacturerURL>
-        <modelDescription>DLNA/UPnP Media Server with Sony BRAVIA compatibility</modelDescription>
+        <modelDescription>DLNA/UPnP Media Server</modelDescription>
         <modelName>{SERVER_NAME}</modelName>
         <modelNumber>{SERVER_VERSION}</modelNumber>
         <modelURL>https://github.com/richstokes/ZeroConfigDLNA</modelURL>

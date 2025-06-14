@@ -141,8 +141,6 @@ class ZeroConfigDLNA:
 
 
 def main():
-    import argparse
-
     parser = argparse.ArgumentParser(description=SERVER_DESCRIPTION)
     parser.add_argument(
         "-d",
