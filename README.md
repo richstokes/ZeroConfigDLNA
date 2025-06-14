@@ -9,6 +9,7 @@ Clone/download this repo and run:
 If you want to serve files from another directory, use the `-d` flag, e.g:  
 `python app.py -d ~/Downloads`  
 
+
 This project uses features from the Python standard library. No other packages/setup is required to run.  
 
 
