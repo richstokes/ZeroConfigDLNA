@@ -1,15 +1,8 @@
 import socket
 import threading
 import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import unquote, urlparse
-import mimetypes
-import uuid
-import xml.etree.ElementTree as ET
 import struct
 import select
-import html
-import traceback
 from constants import (
     SERVER_AGENT,
 )

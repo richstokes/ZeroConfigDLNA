@@ -2,15 +2,11 @@ import os
 import socket
 import threading
 import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import unquote, urlparse
+from http.server import HTTPServer
 import mimetypes
-import uuid
-import xml.etree.ElementTree as ET
 import argparse
 
 from constants import (
-    SERVER_AGENT,
     SERVER_NAME,
     SERVER_DESCRIPTION,
     SERVER_VERSION,
@@ -78,7 +74,7 @@ class ZeroConfigDLNA:
                 test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 test_socket.bind((self.server_ip, self.port))
                 test_socket.close()
-            except OSError as e:
+            except OSError:
                 print(
                     f"Error: Port {self.port} is already in use. Try a different port with -p option."
                 )

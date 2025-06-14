@@ -1,12 +1,9 @@
 import os
-import time
 import struct
 import subprocess
-import hashlib
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler
 from urllib.parse import unquote, urlparse, quote
 import mimetypes
-import xml.etree.ElementTree as ET
 import html
 import traceback
 from constants import (
@@ -276,7 +273,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         scpd_xml = ""
         if service_type == "ContentDirectory":
             # Basic SCPD for ContentDirectory - this should be expanded based on actual implemented actions
-            scpd_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+            scpd_xml = """<?xml version="1.0" encoding="utf-8"?>
 <scpd xmlns="urn:schemas-upnp-org:service-1-0">
     <specVersion>
         <major>1</major>
@@ -421,7 +418,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
     </serviceStateTable>
 </scpd>"""
         elif service_type == "ConnectionManager":
-            scpd_xml = f"""<?xml version="1.0" encoding="utf-8"?>
+            scpd_xml = """<?xml version="1.0" encoding="utf-8"?>
 <scpd xmlns="urn:schemas-upnp-org:service-1-0">
     <specVersion>
         <major>1</major>
