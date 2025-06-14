@@ -30,10 +30,9 @@ def is_safe_path(base_dir, requested_path):
     # Normalize paths (handle case sensitivity, symbolic links, etc.)
     base_dir = os.path.normcase(os.path.normpath(os.path.realpath(base_dir)))
 
-    # Use abspath first to handle relative paths before realpath resolves symlinks
-    requested_abspath = os.path.abspath(requested_path)
+    # Handle relative paths before realpath resolves symlinks, then normalize
     requested_path = os.path.normcase(
-        os.path.normpath(os.path.realpath(requested_path))
+        os.path.normpath(os.path.realpath(os.path.abspath(requested_path)))
     )
 
     # First quick check - if no common prefix, definitely unsafe
@@ -952,12 +951,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
             print(f"SOAP Headers: {self.headers}")
 
             # Determine which service is being addressed
-            service_type = None
             if "ContentDirectory" in soap_action:
-                service_type = "ContentDirectory"
                 print("ContentDirectory service action detected")
             elif "ConnectionManager" in soap_action:
-                service_type = "ConnectionManager"
                 print("ConnectionManager service action detected")
             else:
                 print(f"Unknown service in SOAP action: {soap_action}")
@@ -1797,7 +1793,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             minutes = int((seconds % 3600) // 60)
             secs = int(seconds % 60)
             return f"{hours:02d}:{minutes:02d}:{secs:02d}"
-        except:
+        except Exception:
             return "01:00:00"
 
     def _parse_mp4_duration(self, file_path):
