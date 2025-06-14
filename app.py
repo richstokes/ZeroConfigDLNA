@@ -15,6 +15,7 @@ import traceback
 import argparse
 
 from constants import (
+    SERVER_AGENT,
     SERVER_NAME,
     SERVER_DESCRIPTION,
     SERVER_VERSION,
@@ -147,7 +148,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, SOAPAction")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(device_xml.encode())
 
@@ -441,7 +442,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/xml; charset=utf-8")
         self.send_header("Content-Length", str(len(scpd_xml)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(scpd_xml.encode())
 
@@ -473,7 +474,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>EZDLNA Media Server</title>
+    <title>{SERVER_DESCRIPTION}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 40px; }}
         .file-list {{ list-style-type: none; padding: 0; }}
@@ -483,7 +484,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
     </style>
 </head>
 <body>
-    <h1>EZDLNA Media Server</h1>
+    <h1>{SERVER_DESCRIPTION}</h1>
     <p>Serving {len(media_files)} media files from: {self.server_instance.media_directory}</p>
     <ul class="file-list">"""
 
@@ -588,7 +589,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     )
                 self.send_header("transferMode.dlna.org", "Streaming")
                 # Add server identification and additional compatibility headers
-                self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+                self.send_header("Server", SERVER_AGENT)
                 # Add connection close to prevent hanging connections
                 self.send_header("Connection", "close")
                 self.end_headers()
@@ -650,7 +651,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
                 )
             self.send_header("transferMode.dlna.org", "Streaming")
-            self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+            self.send_header("Server", SERVER_AGENT)
             self.send_header("Connection", "close")
             self.end_headers()
 
@@ -999,7 +1000,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", 'text/xml; charset="utf-8"')
             self.send_header("Content-Length", str(len(response)))
             self.send_header("Ext", "")
-            self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+            self.send_header(f"Server", SERVER_AGENT)
             self.end_headers()
             self.wfile.write(response.encode())
 
@@ -1056,7 +1057,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", 'text/xml; charset="utf-8"')
         self.send_header("Content-Length", str(len(response)))
         self.send_header("Ext", "")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(response.encode())
         print("GetProtocolInfo response sent")
@@ -1077,7 +1078,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", 'text/xml; charset="utf-8"')
         self.send_header("Content-Length", str(len(response)))
         self.send_header("Ext", "")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(response.encode())
         print("GetCurrentConnectionIDs response sent")
@@ -1104,7 +1105,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", 'text/xml; charset="utf-8"')
         self.send_header("Content-Length", str(len(response)))
         self.send_header("Ext", "")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(response.encode())
         print("GetCurrentConnectionInfo response sent")
@@ -1125,7 +1126,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", 'text/xml; charset="utf-8"')
         self.send_header("Content-Length", str(len(response)))
         self.send_header("Ext", "")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(response.encode())
         print("GetSearchCapabilities response sent")
@@ -1146,7 +1147,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", 'text/xml; charset="utf-8"')
         self.send_header("Content-Length", str(len(response)))
         self.send_header("Ext", "")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(response.encode())
         print("GetSortCapabilities response sent")
@@ -1167,7 +1168,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", 'text/xml; charset="utf-8"')
         self.send_header("Content-Length", str(len(response)))
         self.send_header("Ext", "")
-        self.send_header("Server", "EZDLNA/1.0 DLNA/1.50 UPnP/1.0")
+        self.send_header("Server", SERVER_AGENT)
         self.end_headers()
         self.wfile.write(response.encode())
         print("GetSystemUpdateID response sent")
@@ -1255,10 +1256,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
 class EZDLNA:
     def __init__(self, media_directory=None, port=8200):
-        self.name = "EZDLNA"
-        self.version = "1.0.0"
-        self.author = "Your Name"
-        self.description = "A simple DLNA server application."
+        self.name = SERVER_NAME
+        self.version = SERVER_VERSION
+        self.author = SERVER_MANUFACTURER
+        self.description = SERVER_DESCRIPTION
         self.media_directory = media_directory or os.getcwd()
         self.port = port
         self.server = None
@@ -1376,7 +1377,7 @@ class EZDLNA:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="EZDLNA - Simple DLNA Media Server")
+    parser = argparse.ArgumentParser(description=SERVER_DESCRIPTION)
     parser.add_argument(
         "-d",
         "--directory",
