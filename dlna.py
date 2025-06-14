@@ -1,5 +1,8 @@
 import os
 import time
+import struct
+import subprocess
+import hashlib
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import unquote, urlparse, quote
 import mimetypes
@@ -1659,6 +1662,188 @@ class DLNAHandler(BaseHTTPRequestHandler):
             print(f"Error counting directory children in {dir_path}: {e}")
         return count
 
+    def _get_media_duration(self, file_path, mime_type):
+        """
+        Attempt to get the actual duration of a media file.
+        Falls back to default values if extraction fails.
+        Uses only Python standard library methods.
+        """
+        try:
+            # Default fallback durations based on file type
+            default_durations = {
+                "video/mp4": "01:30:00",
+                "video/x-msvideo": "00:45:00",
+                "video/x-matroska": "02:00:00",
+                "audio/mpeg": "00:03:30",
+                "audio/wav": "00:05:00",
+            }
+
+            # Try to get duration using ffprobe if available
+            if mime_type and (
+                mime_type.startswith("video/") or mime_type.startswith("audio/")
+            ):
+                try:
+                    # Try ffprobe first (most reliable)
+                    result = subprocess.run(
+                        [
+                            "ffprobe",
+                            "-v",
+                            "quiet",
+                            "-show_entries",
+                            "format=duration",
+                            "-of",
+                            "csv=p=0",
+                            file_path,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+
+                    if result.returncode == 0 and result.stdout.strip():
+                        duration_seconds = float(result.stdout.strip())
+                        return self._seconds_to_hms(duration_seconds)
+                except (
+                    subprocess.SubprocessError,
+                    FileNotFoundError,
+                    ValueError,
+                    subprocess.TimeoutExpired,
+                ):
+                    pass
+
+                # Try mediainfo as fallback
+                try:
+                    result = subprocess.run(
+                        ["mediainfo", "--Inform=General;%Duration%", file_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+
+                    if result.returncode == 0 and result.stdout.strip():
+                        duration_ms = int(result.stdout.strip())
+                        duration_seconds = duration_ms / 1000
+                        return self._seconds_to_hms(duration_seconds)
+                except (
+                    subprocess.SubprocessError,
+                    FileNotFoundError,
+                    ValueError,
+                    subprocess.TimeoutExpired,
+                ):
+                    pass
+
+                # Try basic MP4 parsing for MP4 files
+                if mime_type == "video/mp4":
+                    mp4_duration = self._parse_mp4_duration(file_path)
+                    if mp4_duration:
+                        return mp4_duration
+
+                # Try basic AVI parsing for AVI files
+                if mime_type == "video/x-msvideo":
+                    avi_duration = self._parse_avi_duration(file_path)
+                    if avi_duration:
+                        return avi_duration
+
+            # Return default duration for the mime type
+            return default_durations.get(mime_type, "01:00:00")
+
+        except Exception as e:
+            print(f"Error getting duration for {file_path}: {e}")
+            # Return a reasonable default
+            if mime_type and mime_type.startswith("video/"):
+                return "01:30:00"
+            elif mime_type and mime_type.startswith("audio/"):
+                return "00:04:00"
+            else:
+                return "01:00:00"
+
+    def _seconds_to_hms(self, seconds):
+        """Convert seconds to HH:MM:SS format"""
+        try:
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            secs = int(seconds % 60)
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        except:
+            return "01:00:00"
+
+    def _parse_mp4_duration(self, file_path):
+        """
+        Basic MP4 duration parsing using binary file reading.
+        Looks for mvhd atom which contains duration information.
+        """
+        try:
+            with open(file_path, "rb") as f:
+                # Read first 64KB to look for mvhd atom
+                data = f.read(65536)
+
+                # Look for 'mvhd' atom
+                mvhd_pos = data.find(b"mvhd")
+                if mvhd_pos == -1:
+                    return None
+
+                # Skip to timescale and duration fields
+                # mvhd structure: size(4) + type(4) + version(1) + flags(3) +
+                # creation_time(4) + modification_time(4) + timescale(4) + duration(4)
+                timescale_pos = (
+                    mvhd_pos + 12
+                )  # Skip mvhd + version/flags + creation/modification time
+                duration_pos = timescale_pos + 4
+
+                if duration_pos + 4 <= len(data):
+                    timescale = struct.unpack(
+                        ">I", data[timescale_pos : timescale_pos + 4]
+                    )[0]
+                    duration = struct.unpack(
+                        ">I", data[duration_pos : duration_pos + 4]
+                    )[0]
+
+                    if timescale > 0:
+                        duration_seconds = duration / timescale
+                        return self._seconds_to_hms(duration_seconds)
+
+        except Exception as e:
+            print(f"Error parsing MP4 duration: {e}")
+
+        return None
+
+    def _parse_avi_duration(self, file_path):
+        """
+        Basic AVI duration parsing using binary file reading.
+        Looks for avih chunk which contains frame rate and total frames.
+        """
+        try:
+            with open(file_path, "rb") as f:
+                # Read first 64KB to look for avih chunk
+                data = f.read(65536)
+
+                # Look for 'avih' chunk
+                avih_pos = data.find(b"avih")
+                if avih_pos == -1:
+                    return None
+
+                # avih structure includes microseconds per frame and total frames
+                # Skip chunk header and get to the data
+                microsec_per_frame_pos = avih_pos + 8  # Skip 'avih' + size
+                total_frames_pos = microsec_per_frame_pos + 4
+
+                if total_frames_pos + 4 <= len(data):
+                    microsec_per_frame = struct.unpack(
+                        "<I", data[microsec_per_frame_pos : microsec_per_frame_pos + 4]
+                    )[0]
+                    total_frames = struct.unpack(
+                        "<I", data[total_frames_pos : total_frames_pos + 4]
+                    )[0]
+
+                    if microsec_per_frame > 0 and total_frames > 0:
+                        duration_seconds = (total_frames * microsec_per_frame) / 1000000
+                        return self._seconds_to_hms(duration_seconds)
+
+        except Exception as e:
+            print(f"Error parsing AVI duration: {e}")
+
+        return None
+
     def _create_media_item_didl(self, file_info, parent_id):
         """Create DIDL-Lite XML for a media item"""
         file_path = file_info["full_path"]
@@ -1680,18 +1865,21 @@ class DLNAHandler(BaseHTTPRequestHandler):
         dc_date = "2024-01-01T00:00:00"  # Placeholder date
         upnp_class = "object.item.videoItem"  # Default to video
 
+        # Get actual duration for media files
+        duration = self._get_media_duration(file_path, mime_type)
+
         if mime_type and mime_type.startswith("video/"):
             if mime_type == "video/mp4":
                 dlna_profile = "DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                res_attrs = f'size="{file_size}" duration="01:30:00" resolution="1280x720" bitrate="4000000"'
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="1280x720" bitrate="4000000"'
             elif mime_type == "video/x-msvideo":  # AVI
                 dlna_profile = "DLNA.ORG_PN=AVI;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                res_attrs = f'size="{file_size}" duration="00:45:00" resolution="720x576" bitrate="1500000"'
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="720x576" bitrate="1500000"'
             elif mime_type == "video/x-matroska" or file.lower().endswith(
                 ".mkv"
             ):  # MKV
                 dlna_profile = "DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                res_attrs = f'size="{file_size}" duration="02:00:00" resolution="1920x1080" bitrate="8000000"'
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="1920x1080" bitrate="8000000"'
 
             escaped_title = html.escape(file)
             protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
@@ -1712,10 +1900,12 @@ class DLNAHandler(BaseHTTPRequestHandler):
             upnp_class = "object.item.audioItem.musicTrack"
             if mime_type == "audio/mpeg":  # MP3
                 dlna_profile = "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                res_attrs = f'size="{file_size}" duration="00:03:30" bitrate="320000"'
+                res_attrs = f'size="{file_size}" duration="{duration}" bitrate="320000"'
             elif mime_type == "audio/wav":
                 dlna_profile = "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                res_attrs = f'size="{file_size}" duration="00:05:00" bitrate="1411200"'
+                res_attrs = (
+                    f'size="{file_size}" duration="{duration}" bitrate="1411200"'
+                )
 
             escaped_title = html.escape(file)
             protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
