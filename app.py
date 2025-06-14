@@ -80,17 +80,24 @@ class ZeroConfigDLNA:
 
             # Count media files
             media_count = 0
-            for file in os.listdir(self.media_directory):
-                file_path = os.path.join(self.media_directory, file)
-                if os.path.isfile(file_path):
-                    mime_type, _ = mimetypes.guess_type(file)
-                    if mime_type and (
-                        mime_type.startswith("video/")
-                        or mime_type.startswith("audio/")
-                        or mime_type.startswith("image/")
-                    ):
-                        media_count += 1
 
+            def count_media_files(directory):
+                nonlocal media_count
+                for item in os.listdir(directory):
+                    item_path = os.path.join(directory, item)
+                    if os.path.isfile(item_path):
+                        mime_type, _ = mimetypes.guess_type(item)
+                        if mime_type and (
+                            mime_type.startswith("video/")
+                            or mime_type.startswith("audio/")
+                            or mime_type.startswith("image/")
+                        ):
+                            media_count += 1
+                    elif os.path.isdir(item_path):
+                        # Recursively count files in subdirectories
+                        count_media_files(item_path)
+
+            count_media_files(self.media_directory)
             print(f"Found {media_count} media files to serve")
 
             self.server = HTTPServer((self.server_ip, self.port), self.create_handler())

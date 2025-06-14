@@ -1,7 +1,7 @@
 import os
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, quote
 import mimetypes
 import xml.etree.ElementTree as ET
 import html
@@ -531,26 +531,80 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def send_browse_response(self):
         """Send a simple directory listing"""
         try:
-            files = os.listdir(self.server_instance.media_directory)
-            media_files = []
+            path_param = urlparse(self.path).query
+            current_dir = ""
 
-            for file in files:
-                file_path = os.path.join(self.server_instance.media_directory, file)
-                if os.path.isfile(file_path):
-                    mime_type, _ = mimetypes.guess_type(file)
+            # Parse path parameter if it exists
+            if path_param.startswith("path="):
+                current_dir = unquote(path_param[5:])
+
+            # Get the full directory path
+            current_full_path = os.path.join(
+                self.server_instance.media_directory, current_dir
+            )
+
+            # Security check: ensure requested directory is within media directory
+            real_path = os.path.realpath(current_full_path)
+            real_media_dir = os.path.realpath(self.server_instance.media_directory)
+            if not real_path.startswith(real_media_dir):
+                self.send_error(403, "Access denied")
+                return
+
+            # Make sure path exists
+            if not os.path.exists(current_full_path) or not os.path.isdir(
+                current_full_path
+            ):
+                self.send_error(404, "Directory not found")
+                return
+
+            # Get directory contents
+            items = []
+            for item_name in os.listdir(current_full_path):
+                item_path = os.path.join(current_full_path, item_name)
+                relative_path = (
+                    os.path.join(current_dir, item_name) if current_dir else item_name
+                )
+
+                if os.path.isdir(item_path):
+                    # Add directory
+                    items.append(
+                        {"name": item_name, "path": relative_path, "is_dir": True}
+                    )
+                elif os.path.isfile(item_path):
+                    mime_type, _ = mimetypes.guess_type(item_name)
                     if mime_type and (
                         mime_type.startswith("video/")
                         or mime_type.startswith("audio/")
                         or mime_type.startswith("image/")
                     ):
-                        media_files.append(
+                        # Add media file
+                        url_path = relative_path.replace("\\", "/")
+                        encoded_path = quote(url_path)
+                        items.append(
                             {
-                                "name": file,
-                                "url": f"http://{self.server_instance.server_ip}:{self.server_instance.port}/media/{file}",
+                                "name": item_name,
+                                "path": relative_path,
+                                "is_dir": False,
+                                "url": f"http://{self.server_instance.server_ip}:{self.server_instance.port}/media/{encoded_path}",
                                 "mime_type": mime_type,
-                                "size": os.path.getsize(file_path),
+                                "size": os.path.getsize(item_path),
                             }
                         )
+
+            # Count media files
+            media_file_count = sum(1 for item in items if not item.get("is_dir", False))
+
+            # Build breadcrumb navigation
+            breadcrumbs = []
+            breadcrumbs.append({"name": "Home", "path": ""})
+
+            if current_dir:
+                parts = current_dir.split(os.sep)
+                cumulative_path = ""
+                for part in parts:
+                    if part:
+                        cumulative_path = os.path.join(cumulative_path, part)
+                        breadcrumbs.append({"name": part, "path": cumulative_path})
 
             # Simple HTML response for browser testing
             html = f"""<!DOCTYPE html>
@@ -559,25 +613,64 @@ class DLNAHandler(BaseHTTPRequestHandler):
     <title>{SERVER_DESCRIPTION}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 40px; }}
+        .breadcrumb {{ display: flex; flex-wrap: wrap; list-style: none; padding: 0; margin-bottom: 20px; }}
+        .breadcrumb li {{ margin-right: 10px; }}
+        .breadcrumb li:after {{ content: " > "; margin-left: 10px; color: #666; }}
+        .breadcrumb li:last-child:after {{ content: ""; }}
+        .breadcrumb a {{ text-decoration: none; color: #0066cc; }}
+        .breadcrumb a:hover {{ text-decoration: underline; }}
+        .current-path {{ margin-bottom: 20px; color: #666; }}
         .file-list {{ list-style-type: none; padding: 0; }}
         .file-item {{ margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }}
+        .dir-item {{ background-color: #f5f5f5; }}
         .file-name {{ font-weight: bold; }}
         .file-info {{ color: #666; font-size: 0.9em; }}
+        .folder-icon {{ margin-right: 5px; color: #ffa500; }}
     </style>
 </head>
 <body>
     <h1>{SERVER_DESCRIPTION}</h1>
-    <p>Serving {len(media_files)} media files from: {self.server_instance.media_directory}</p>
+    
+    <ul class="breadcrumb">
+"""
+
+            # Add breadcrumb navigation
+            for crumb in breadcrumbs:
+                if crumb == breadcrumbs[-1]:  # Current directory
+                    html += f'        <li>{crumb["name"]}</li>\n'
+                else:
+                    html += f'        <li><a href="/browse?path={quote(crumb["path"])}">{crumb["name"]}</a></li>\n'
+
+            html += f"""    </ul>
+    
+    <div class="current-path">Current directory: {os.path.join(self.server_instance.media_directory, current_dir)}</div>
+    <p>Found {media_file_count} media files in this directory</p>
+    
     <ul class="file-list">"""
 
-            for file in media_files:
-                html += f"""
+            # Sort items: directories first, then files
+            sorted_items = sorted(
+                items, key=lambda x: (not x.get("is_dir", False), x["name"])
+            )
+
+            for item in sorted_items:
+                if item.get("is_dir", False):
+                    # Display directory with folder icon and link to browse
+                    html += f"""
+        <li class="file-item dir-item">
+            <div class="file-name">
+                <a href="/browse?path={quote(item['path'])}"><span class="folder-icon">📁</span> {item['name']}</a>
+            </div>
+        </li>"""
+                else:
+                    # Display media file with link
+                    html += f"""
         <li class="file-item">
             <div class="file-name">
-                <a href="{file['url']}" target="_blank">{file['name']}</a>
+                <a href="{item['url']}" target="_blank">{item['name']}</a>
             </div>
             <div class="file-info">
-                Type: {file['mime_type']} | Size: {file['size']:,} bytes
+                Type: {item['mime_type']} | Size: {item['size']:,} bytes
             </div>
         </li>"""
 
@@ -594,6 +687,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
         except Exception as e:
             self.send_error(500, f"Error reading directory: {str(e)}")
+            traceback.print_exc()
 
     def serve_media_file(self, filename, head_only=False):
         """Serve a media file"""
@@ -942,199 +1036,301 @@ class DLNAHandler(BaseHTTPRequestHandler):
             print(f"Browse ObjectID: {object_id}, BrowseFlag: {browse_flag}")
             print(f"StartingIndex: {starting_index}, RequestedCount: {requested_count}")
 
+            # Setup the directory structure mapping
+            if not hasattr(self, "directory_mapping"):
+                self.directory_mapping = self._create_directory_mapping()
+
             # Generate DIDL-Lite XML for media files
             didl_items = []
 
+            # ObjectID 0 is the root container
             if object_id == "0" and browse_flag == "BrowseDirectChildren":
-                # Root: return a single container ("All Media")
+                # Root: Show the root folder
                 didl_items.append(
-                    '<container id="1" parentID="0" restricted="1" searchable="1" childCount="{child_count}">\n'
-                    "    <dc:title>All Media</dc:title>\n"
+                    '<container id="1" parentID="0" restricted="1" searchable="1" childCount="1">\n'
+                    "    <dc:title>Root</dc:title>\n"
                     "    <upnp:class>object.container.storageFolder</upnp:class>\n"
-                    "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
-                    "</container>".format(child_count=self._count_media_files())
-                )
-                number_returned = 1
-                total_matches = 1
-            elif object_id == "1" and browse_flag == "BrowseDirectChildren":
-                # "All Media" container: return all media items, honor StartingIndex/RequestedCount
-                files = os.listdir(self.server_instance.media_directory)
-                media_files = []
-                print(f"Scanning directory: {self.server_instance.media_directory}")
-                print(f"Found {len(files)} total files")
-
-                for file in files:
-                    file_path = os.path.join(self.server_instance.media_directory, file)
-                    if os.path.isfile(file_path):
-                        mime_type, _ = mimetypes.guess_type(file)
-                        print(f"File: {file}, MIME: {mime_type}")
-                        if mime_type and (
-                            mime_type.startswith("video/")
-                            or mime_type.startswith("audio/")
-                            or mime_type.startswith("image/")
-                        ):
-                            media_files.append(file)
-                            print(f"Added to media files: {file}")
-
-                total_matches = len(media_files)
-                print(f"Total media files found: {total_matches}")
-
-                # Apply StartingIndex/RequestedCount
-                if requested_count is not None and requested_count > 0:
-                    media_files_slice = media_files[
-                        starting_index : starting_index + requested_count
-                    ]
-                else:
-                    media_files_slice = media_files[starting_index:]
-                number_returned = len(media_files_slice)
-                print(
-                    f"Returning {number_returned} media files (slice from {starting_index})"
-                )
-
-                item_id = 2
-                for file in media_files_slice:
-                    file_path = os.path.join(self.server_instance.media_directory, file)
-                    file_size = os.path.getsize(file_path)
-                    from urllib.parse import quote
-
-                    encoded_filename = quote(file, safe="")
-                    file_url = f"http://{self.server_instance.server_ip}:{self.server_instance.port}/media/{encoded_filename}"
-                    mime_type, _ = mimetypes.guess_type(file)
-
-                    print(f"Processing item {item_id}: {file} ({mime_type})")
-
-                    # Default values
-                    dlna_profile = "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"  # Generic
-                    res_attrs = f'size="{file_size}"'
-                    dc_date = "2024-01-01T00:00:00"  # Placeholder date
-                    upnp_class = "object.item.videoItem"  # Default to video
-
-                    if mime_type and mime_type.startswith("video/"):
-                        if mime_type == "video/mp4":
-                            dlna_profile = "DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                            res_attrs = f'size="{file_size}" duration="01:30:00" resolution="1280x720" bitrate="4000000"'
-                        elif mime_type == "video/x-msvideo":  # AVI
-                            dlna_profile = "DLNA.ORG_PN=AVI;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                            res_attrs = f'size="{file_size}" duration="00:45:00" resolution="720x576" bitrate="1500000"'
-                        elif mime_type == "video/x-matroska" or file.lower().endswith(
-                            ".mkv"
-                        ):  # MKV
-                            dlna_profile = "DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                            res_attrs = f'size="{file_size}" duration="02:00:00" resolution="1920x1080" bitrate="8000000"'
-
-                        escaped_title = html.escape(file)
-                        protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
-                        didl_item = (
-                            f'<item id="{item_id}" parentID="1" restricted="1">\n'
-                            f"    <dc:title>{escaped_title}</dc:title>\n"
-                            f"    <upnp:class>{upnp_class}</upnp:class>\n"
-                            f"    <dc:creator>Unknown Creator</dc:creator>\n"
-                            f"    <upnp:artist>Unknown Artist</upnp:artist>\n"
-                            f"    <upnp:genre>Video</upnp:genre>\n"
-                            f"    <dc:description>Video File: {escaped_title}</dc:description>\n"
-                            f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
-                            f"</item>"
-                        )
-                        didl_items.append(didl_item)
-                        print(f"Added video item: {escaped_title}")
-
-                    elif mime_type and mime_type.startswith("audio/"):
-                        upnp_class = "object.item.audioItem.musicTrack"
-                        if mime_type == "audio/mpeg":  # MP3
-                            dlna_profile = "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                            res_attrs = f'size="{file_size}" duration="00:03:30" bitrate="320000"'
-                        elif mime_type == "audio/wav":
-                            dlna_profile = "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
-                            res_attrs = f'size="{file_size}" duration="00:05:00" bitrate="1411200"'
-
-                        escaped_title = html.escape(file)
-                        protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
-                        didl_item = (
-                            f'<item id="{item_id}" parentID="1" restricted="1">\n'
-                            f"    <dc:title>{escaped_title}</dc:title>\n"
-                            f"    <upnp:class>{upnp_class}</upnp:class>\n"
-                            f"    <dc:creator>Unknown Artist</dc:creator>\n"
-                            f"    <upnp:artist>Unknown Artist</upnp:artist>\n"
-                            f"    <upnp:album>Unknown Album</upnp:album>\n"
-                            f"    <upnp:genre>Music</upnp:genre>\n"
-                            f"    <dc:date>{dc_date}</dc:date>\n"
-                            f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
-                            f"</item>"
-                        )
-                        didl_items.append(didl_item)
-                        print(f"Added audio item: {escaped_title}")
-
-                    elif mime_type and mime_type.startswith("image/"):
-                        upnp_class = "object.item.imageItem.photo"
-                        if mime_type == "image/jpeg":
-                            dlna_profile = "DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
-                            res_attrs = f'size="{file_size}" resolution="1920x1080"'
-                        elif mime_type == "image/png":
-                            dlna_profile = "DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
-                            res_attrs = f'size="{file_size}" resolution="1920x1080"'
-
-                        escaped_title = html.escape(file)
-                        protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
-                        didl_item = (
-                            f'<item id="{item_id}" parentID="1" restricted="1">\n'
-                            f"    <dc:title>{escaped_title}</dc:title>\n"
-                            f"    <upnp:class>{upnp_class}</upnp:class>\n"
-                            f"    <dc:creator>Unknown Creator</dc:creator>\n"
-                            f"    <upnp:genre>Photo</upnp:genre>\n"
-                            f"    <dc:date>{dc_date}</dc:date>\n"
-                            f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
-                            f"</item>"
-                        )
-                        didl_items.append(didl_item)
-                        print(f"Added image item: {escaped_title}")
-                    else:
-                        print(f"Skipping unsupported file type: {file} ({mime_type})")
-
-                    item_id += 1
-
-            elif object_id == "0" and browse_flag == "BrowseMetadata":
-                # Root container metadata
-                didl_items.append(
-                    '<container id="0" parentID="-1" restricted="1" searchable="1" childCount="1">\n'
-                    "    <dc:title>EZDLNA Media Server</dc:title>\n"
-                    "    <upnp:class>object.container</upnp:class>\n"
                     "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
                     "</container>"
                 )
                 number_returned = 1
                 total_matches = 1
-                print("Returning root container metadata")
 
-            elif object_id == "1" and browse_flag == "BrowseMetadata":
-                # "All Media" container metadata
-                didl_items.append(
-                    '<container id="1" parentID="0" restricted="1" searchable="1" childCount="{child_count}">\n'
-                    "    <dc:title>All Media</dc:title>\n"
-                    "    <upnp:class>object.container.storageFolder</upnp:class>\n"
-                    "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
-                    "</container>".format(child_count=self._count_media_files())
+            # ObjectID 1 is the main media directory
+            elif object_id == "1" and browse_flag == "BrowseDirectChildren":
+                print(
+                    f"Browsing main media directory: {self.server_instance.media_directory}"
                 )
-                number_returned = 1
-                total_matches = 1
-                print("Returning 'All Media' container metadata")
+
+                # Get direct children (files and folders) in the root media directory
+                children = []
+                for item_name in os.listdir(self.server_instance.media_directory):
+                    item_path = os.path.join(
+                        self.server_instance.media_directory, item_name
+                    )
+                    if os.path.isdir(item_path):
+                        # Add directory
+                        dir_id = self._get_id_for_path(item_name)
+                        # Count child items
+                        child_count = self._count_dir_children(item_path)
+                        children.append(
+                            {
+                                "id": dir_id,
+                                "name": item_name,
+                                "is_dir": True,
+                                "child_count": child_count,
+                            }
+                        )
+                    elif os.path.isfile(item_path):
+                        mime_type, _ = mimetypes.guess_type(item_name)
+                        if mime_type and (
+                            mime_type.startswith("video/")
+                            or mime_type.startswith("audio/")
+                            or mime_type.startswith("image/")
+                        ):
+                            # Add media file
+                            file_id = self._get_id_for_path(item_name)
+                            children.append(
+                                {
+                                    "id": file_id,
+                                    "name": item_name,
+                                    "is_dir": False,
+                                    "path": item_name,
+                                    "full_path": item_path,
+                                    "mime_type": mime_type,
+                                    "size": os.path.getsize(item_path),
+                                }
+                            )
+
+                # Get total number of direct children
+                total_matches = len(children)
+
+                # Apply pagination
+                if requested_count is not None and requested_count > 0:
+                    children_slice = children[
+                        starting_index : starting_index + requested_count
+                    ]
+                else:
+                    children_slice = children[starting_index:]
+
+                number_returned = len(children_slice)
+
+                # Generate DIDL items for each child
+                for child in children_slice:
+                    if child["is_dir"]:
+                        # This is a directory/container
+                        container = (
+                            f'<container id="{child["id"]}" parentID="1" restricted="1" searchable="1" childCount="{child["child_count"]}">\n'
+                            f'    <dc:title>{html.escape(child["name"])}</dc:title>\n'
+                            f"    <upnp:class>object.container.storageFolder</upnp:class>\n"
+                            f"    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
+                            f"</container>"
+                        )
+                        didl_items.append(container)
+                    else:
+                        # This is a media file
+                        didl_items.append(self._create_media_item_didl(child, "1"))
+
+            # Handle browsing of subdirectories or specific directory
+            elif browse_flag == "BrowseDirectChildren" and object_id not in ["0", "1"]:
+                print(f"Browsing directory with ID: {object_id}")
+                # Get the path for this directory ID
+                dir_path = self._get_path_for_id(object_id)
+
+                if dir_path:
+                    full_path = os.path.join(
+                        self.server_instance.media_directory, dir_path
+                    )
+
+                    # Check if the path exists and is a directory
+                    if os.path.exists(full_path) and os.path.isdir(full_path):
+                        # Get contents of this directory
+                        children = []
+                        for item_name in os.listdir(full_path):
+                            item_path = os.path.join(full_path, item_name)
+                            rel_path = os.path.join(dir_path, item_name)
+
+                            if os.path.isdir(item_path):
+                                # Add subdirectory
+                                subdir_id = self._get_id_for_path(rel_path)
+                                child_count = self._count_dir_children(item_path)
+                                children.append(
+                                    {
+                                        "id": subdir_id,
+                                        "name": item_name,
+                                        "is_dir": True,
+                                        "child_count": child_count,
+                                    }
+                                )
+                            elif os.path.isfile(item_path):
+                                mime_type, _ = mimetypes.guess_type(item_name)
+                                if mime_type and (
+                                    mime_type.startswith("video/")
+                                    or mime_type.startswith("audio/")
+                                    or mime_type.startswith("image/")
+                                ):
+                                    # Add media file
+                                    file_id = self._get_id_for_path(rel_path)
+                                    children.append(
+                                        {
+                                            "id": file_id,
+                                            "name": item_name,
+                                            "is_dir": False,
+                                            "path": rel_path,
+                                            "full_path": item_path,
+                                            "mime_type": mime_type,
+                                            "size": os.path.getsize(item_path),
+                                        }
+                                    )
+
+                        # Get total number of direct children
+                        total_matches = len(children)
+
+                        # Apply pagination
+                        if requested_count is not None and requested_count > 0:
+                            children_slice = children[
+                                starting_index : starting_index + requested_count
+                            ]
+                        else:
+                            children_slice = children[starting_index:]
+
+                        number_returned = len(children_slice)
+
+                        # Generate DIDL items for each child
+                        for child in children_slice:
+                            if child["is_dir"]:
+                                # This is a directory/container
+                                container = (
+                                    f'<container id="{child["id"]}" parentID="{object_id}" restricted="1" searchable="1" childCount="{child["child_count"]}">\n'
+                                    f'    <dc:title>{html.escape(child["name"])}</dc:title>\n'
+                                    f"    <upnp:class>object.container.storageFolder</upnp:class>\n"
+                                    f"    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
+                                    f"</container>"
+                                )
+                                didl_items.append(container)
+                            else:
+                                # This is a media file
+                                didl_items.append(
+                                    self._create_media_item_didl(child, object_id)
+                                )
+                    else:
+                        # Directory not found
+                        print(f"Directory not found: {full_path}")
+                        total_matches = 0
+                        number_returned = 0
+                else:
+                    # Invalid directory ID
+                    print(f"Invalid directory ID: {object_id}")
+                    total_matches = 0
+                    number_returned = 0
+
+            # Handle metadata requests for an item
+            elif browse_flag == "BrowseMetadata":
+                print(f"Browsing metadata for item with ID: {object_id}")
+
+                if object_id == "0":
+                    # Root container metadata
+                    didl_items.append(
+                        '<container id="0" parentID="-1" restricted="1" searchable="1" childCount="1">\n'
+                        "    <dc:title>Root</dc:title>\n"
+                        "    <upnp:class>object.container.storageFolder</upnp:class>\n"
+                        "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
+                        "</container>"
+                    )
+                    total_matches = 1
+                    number_returned = 1
+                elif object_id == "1":
+                    # Main media directory metadata
+                    child_count = self._count_dir_children(
+                        self.server_instance.media_directory
+                    )
+                    didl_items.append(
+                        '<container id="1" parentID="0" restricted="1" searchable="1" childCount="{child_count}">\n'
+                        "    <dc:title>Media</dc:title>\n"
+                        "    <upnp:class>object.container.storageFolder</upnp:class>\n"
+                        "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
+                        "</container>".format(child_count=child_count)
+                    )
+                    total_matches = 1
+                    number_returned = 1
+                else:
+                    # Get metadata for a specific item
+                    item_path = self._get_path_for_id(object_id)
+
+                    if item_path:
+                        full_path = os.path.join(
+                            self.server_instance.media_directory, item_path
+                        )
+                        parent_id = self._get_parent_id(object_id)
+
+                        if os.path.isdir(full_path):
+                            # Directory metadata
+                            dir_name = os.path.basename(item_path)
+                            child_count = self._count_dir_children(full_path)
+
+                            container = (
+                                f'<container id="{object_id}" parentID="{parent_id}" restricted="1" searchable="1" childCount="{child_count}">\n'
+                                f"    <dc:title>{html.escape(dir_name)}</dc:title>\n"
+                                f"    <upnp:class>object.container.storageFolder</upnp:class>\n"
+                                f"    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
+                                f"</container>"
+                            )
+                            didl_items.append(container)
+                        elif os.path.isfile(full_path):
+                            # File metadata
+                            file_name = os.path.basename(item_path)
+                            mime_type, _ = mimetypes.guess_type(file_name)
+
+                            if mime_type and (
+                                mime_type.startswith("video/")
+                                or mime_type.startswith("audio/")
+                                or mime_type.startswith("image/")
+                            ):
+
+                                file_info = {
+                                    "id": object_id,
+                                    "name": file_name,
+                                    "is_dir": False,
+                                    "path": item_path,
+                                    "full_path": full_path,
+                                    "mime_type": mime_type,
+                                    "size": os.path.getsize(full_path),
+                                }
+
+                                didl_items.append(
+                                    self._create_media_item_didl(file_info, parent_id)
+                                )
+
+                        total_matches = 1
+                        number_returned = 1
+                    else:
+                        # Item not found
+                        total_matches = 0
+                        number_returned = 0
             else:
-                # Unknown object ID
-                print(f"Unknown ObjectID: {object_id} with BrowseFlag: {browse_flag}")
-                # Return empty result for unknown object
-                number_returned = 0
+                # Unsupported browse request
                 total_matches = 0
+                number_returned = 0
 
-            didl_lite = f"""<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:dlna="urn:schemas-dlna-org:metadata-1-0/">\n{''.join(didl_items)}\n</DIDL-Lite>"""
+            # Create DIDL-Lite response
+            didl_xml = (
+                '<?xml version="1.0" encoding="utf-8"?>\n'
+                '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+                'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
+                'xmlns:dlna="urn:schemas-dlna-org:metadata-1-0/">\n'
+                + "\n".join(didl_items)
+                + "\n</DIDL-Lite>"
+            )
 
-            print(f"Browse response - NumberReturned: {number_returned}")
-            print(f"DIDL-Lite XML: {didl_lite}")
+            print(f"Result: {number_returned} items of {total_matches} total")
 
-            # Construct SOAP response
+            # Create SOAP response
             response = f"""<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
     <s:Body>
         <u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
-            <Result>{html.escape(didl_lite)}</Result>
+            <Result>{html.escape(didl_xml)}</Result>
             <NumberReturned>{number_returned}</NumberReturned>
             <TotalMatches>{total_matches}</TotalMatches>
             <UpdateID>1</UpdateID>
@@ -1146,262 +1342,221 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", 'text/xml; charset="utf-8"')
             self.send_header("Content-Length", str(len(response)))
             self.send_header("Ext", "")
-            self.send_header(f"Server", SERVER_AGENT)
+            self.send_header("Server", SERVER_AGENT)
             self.end_headers()
             self.wfile.write(response.encode())
+            print("Browse response sent")
 
         except Exception as e:
-            print(f"Error in handle_browse_request: {e}")
+            print(f"Browse request error: {e}")
             traceback.print_exc()
-            self.send_error(500, f"Internal server error: {str(e)}")
-
-    def handle_get_protocol_info(self):
-        """Handle ConnectionManager GetProtocolInfo requests"""
-        print("Handling GetProtocolInfo request")
-        # Enhanced protocol info with more DLNA profiles for Sony BRAVIA compatibility
-        protocols = [
-            # Video formats
-            "http-get:*:video/x-msvideo:DLNA.ORG_PN=AVI;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:video/mp4:DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:video/mp4:DLNA.ORG_PN=MP4_SD_AAC_LTP;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:video/mpeg:DLNA.ORG_PN=MPEG_PS_NTSC;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:video/mpeg:DLNA.ORG_PN=MPEG_PS_PAL;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:video/x-matroska:DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:video/mkv:DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:video/x-ms-wmv:DLNA.ORG_PN=WMVHIGH_FULL;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            # Audio formats
-            "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:audio/wav:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:audio/L16;rate=44100;channels=2:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            "http-get:*:audio/L16;rate=48000;channels=2:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-            # Image formats
-            "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
-            "http-get:*:image/png:DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
-            # For better compatibility with Sony BRAVIA, add some basic MIME types without DLNA params
-            "http-get:*:video/mp4:*",
-            "http-get:*:video/x-msvideo:*",
-            "http-get:*:video/mpeg:*",
-            "http-get:*:audio/mpeg:*",
-            "http-get:*:image/jpeg:*",
-            "http-get:*:image/png:*",
-        ]
-
-        protocol_info_str = ",".join(protocols)
-        print(f"Supported protocols: {len(protocols)}")
-
-        response = f"""<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-    <s:Body>
-        <u:GetProtocolInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
-            <Source>{protocol_info_str}</Source>
-            <Sink></Sink>
-        </u:GetProtocolInfoResponse>
-    </s:Body>
-</s:Envelope>"""
-
-        self.send_response(200)
-        self.send_header("Content-Type", 'text/xml; charset="utf-8"')
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("Ext", "")
-        self.send_header("Server", SERVER_AGENT)
-        self.end_headers()
-        self.wfile.write(response.encode())
-        print("GetProtocolInfo response sent")
-
-    def handle_get_current_connection_ids(self):
-        """Handle ConnectionManager GetCurrentConnectionIDs requests"""
-        print("Handling GetCurrentConnectionIDs request")
-        response = """<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-    <s:Body>
-        <u:GetCurrentConnectionIDsResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
-            <ConnectionIDs>0</ConnectionIDs>
-        </u:GetCurrentConnectionIDsResponse>
-    </s:Body>
-</s:Envelope>"""
-
-        self.send_response(200)
-        self.send_header("Content-Type", 'text/xml; charset="utf-8"')
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("Ext", "")
-        self.send_header("Server", SERVER_AGENT)
-        self.end_headers()
-        self.wfile.write(response.encode())
-        print("GetCurrentConnectionIDs response sent")
-
-    def handle_get_current_connection_info(self):
-        """Handle ConnectionManager GetCurrentConnectionInfo requests"""
-        print("Handling GetCurrentConnectionInfo request")
-        response = """<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-    <s:Body>
-        <u:GetCurrentConnectionInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
-            <RcsID>-1</RcsID>
-            <AVTransportID>-1</AVTransportID>
-            <ProtocolInfo></ProtocolInfo>
-            <PeerConnectionManager></PeerConnectionManager>
-            <PeerConnectionID>-1</PeerConnectionID>
-            <Direction>Output</Direction>
-            <Status>OK</Status>
-        </u:GetCurrentConnectionInfoResponse>
-    </s:Body>
-</s:Envelope>"""
-
-        self.send_response(200)
-        self.send_header("Content-Type", 'text/xml; charset="utf-8"')
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("Ext", "")
-        self.send_header("Server", SERVER_AGENT)
-        self.end_headers()
-        self.wfile.write(response.encode())
-        print("GetCurrentConnectionInfo response sent")
-
-    def handle_get_search_capabilities(self):
-        """Handle ContentDirectory GetSearchCapabilities requests"""
-        print("Handling GetSearchCapabilities request")
-        response = """<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-    <s:Body>
-        <u:GetSearchCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
-            <SearchCaps>dc:title,upnp:class,upnp:genre</SearchCaps>
-        </u:GetSearchCapabilitiesResponse>
-    </s:Body>
-</s:Envelope>"""
-
-        self.send_response(200)
-        self.send_header("Content-Type", 'text/xml; charset="utf-8"')
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("Ext", "")
-        self.send_header("Server", SERVER_AGENT)
-        self.end_headers()
-        self.wfile.write(response.encode())
-        print("GetSearchCapabilities response sent")
-
-    def handle_get_sort_capabilities(self):
-        """Handle ContentDirectory GetSortCapabilities requests"""
-        print("Handling GetSortCapabilities request")
-        response = """<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-    <s:Body>
-        <u:GetSortCapabilitiesResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
-            <SortCaps>dc:title,dc:date,upnp:class</SortCaps>
-        </u:GetSortCapabilitiesResponse>
-    </s:Body>
-</s:Envelope>"""
-
-        self.send_response(200)
-        self.send_header("Content-Type", 'text/xml; charset="utf-8"')
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("Ext", "")
-        self.send_header("Server", SERVER_AGENT)
-        self.end_headers()
-        self.wfile.write(response.encode())
-        print("GetSortCapabilities response sent")
-
-    def handle_get_system_update_id(self):
-        """Handle ContentDirectory GetSystemUpdateID requests"""
-        print("Handling GetSystemUpdateID request")
-        response = """<?xml version="1.0" encoding="utf-8"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-    <s:Body>
-        <u:GetSystemUpdateIDResponse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
-            <Id>1</Id>
-        </u:GetSystemUpdateIDResponse>
-    </s:Body>
-</s:Envelope>"""
-
-        self.send_response(200)
-        self.send_header("Content-Type", 'text/xml; charset="utf-8"')
-        self.send_header("Content-Length", str(len(response)))
-        self.send_header("Ext", "")
-        self.send_header("Server", SERVER_AGENT)
-        self.end_headers()
-        self.wfile.write(response.encode())
-        print("GetSystemUpdateID response sent")
-
-    def handle_subscribe_request(self):
-        """Handle UPnP event subscription requests"""
-        try:
-            # Generate a unique subscription ID
-            import uuid
-
-            sid = f"uuid:{uuid.uuid4()}"
-
-            # Get callback URL from headers
-            callback = self.headers.get("CALLBACK", "")
-            nt = self.headers.get("NT", "")
-            timeout = self.headers.get("TIMEOUT", "Second-1800")
-
-            # Basic validation
-            if not callback or nt != "upnp:event":
-                self.send_error(400, "Bad Request - Invalid headers")
-                return
-
-            # For simplicity, we'll accept the subscription but not actually send events
-            self.send_response(200)
-            self.send_header("SID", sid)
-            self.send_header("TIMEOUT", timeout)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
-
-            print(f"Event subscription accepted: SID={sid}, Callback={callback}")
-
-        except Exception as e:
-            print(f"Subscribe request error: {e}")
             self.send_error(500, "Internal server error")
 
-    def handle_unsubscribe_request(self):
-        """Handle UPnP event unsubscription requests"""
-        try:
-            sid = self.headers.get("SID", "")
+    def _create_directory_mapping(self):
+        """Create a mapping between directory paths and IDs"""
+        # This is a simple mapping system that assigns numeric IDs to each path
+        # Root (0) and Media directory (1) are already assigned
+        mapping = {
+            "0": "",  # Root
+            "1": "",  # Media directory
+        }
 
-            if not sid:
-                self.send_error(400, "Bad Request - Missing SID")
-                return
+        # Start ID counter from 2 (0 and 1 are reserved)
+        id_counter = 2
 
-            # Accept the unsubscription
-            self.send_response(200)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+        # Helper function to scan directories recursively
+        def scan_dir(dir_path, relative_path=""):
+            nonlocal id_counter
 
-            print(f"Event unsubscription accepted: SID={sid}")
+            try:
+                for item in os.listdir(dir_path):
+                    item_path = os.path.join(dir_path, item)
+                    item_rel_path = (
+                        os.path.join(relative_path, item) if relative_path else item
+                    )
 
-        except Exception as e:
-            print(f"Unsubscribe request error: {e}")
-            self.send_error(500, "Internal server error")
+                    # Assign an ID to this path
+                    mapping[str(id_counter)] = item_rel_path
+                    mapping[item_rel_path] = str(id_counter)
+                    id_counter += 1
 
-    def log_message(self, format, *args):
-        """Override to provide custom logging"""
-        try:
-            message = format % args
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}")
+                    # Recursively scan subdirectories
+                    if os.path.isdir(item_path):
+                        scan_dir(item_path, item_rel_path)
+            except Exception as e:
+                print(f"Error scanning directory {dir_path}: {e}")
 
-            # Ignore broken pipe errors as they're handled elsewhere
-            if "Broken pipe" in message:
-                return
+        # Start scanning from the media directory
+        scan_dir(self.server_instance.media_directory)
 
-            # Log any unusual requests
-            if "404" in message or "500" in message:
-                print(f"ERROR REQUEST: {self.path} from {self.client_address}")
-                print(f"ERROR HEADERS: {dict(self.headers)}")
-            # We already log media access in serve_media_file, so we can skip it here
-            # to avoid duplicate logs
-        except Exception as e:
-            # Catch any exceptions in logging so they don't propagate
-            print(f"Error in logging: {str(e)}")
+        return mapping
 
-    def _count_media_files(self):
-        """Count all valid media files in the media directory (video, audio, image)"""
+    def _get_id_for_path(self, path):
+        """Get the ID for a specific path"""
+        if not hasattr(self, "directory_mapping"):
+            self.directory_mapping = self._create_directory_mapping()
+
+        # Check if the path exists in the mapping
+        if path in self.directory_mapping:
+            return self.directory_mapping[path]
+
+        # If not found, add it to the mapping
+        new_id = str(
+            max(int(id) for id in self.directory_mapping.keys() if id.isdigit()) + 1
+        )
+        self.directory_mapping[new_id] = path
+        self.directory_mapping[path] = new_id
+        return new_id
+
+    def _get_path_for_id(self, id_str):
+        """Get the path for a specific ID"""
+        if not hasattr(self, "directory_mapping"):
+            self.directory_mapping = self._create_directory_mapping()
+
+        return self.directory_mapping.get(id_str)
+
+    def _get_parent_id(self, id_str):
+        """Get the parent ID for a given item ID"""
+        if id_str == "0":
+            return "-1"  # Root has no parent
+        if id_str == "1":
+            return "0"  # Media directory's parent is root
+
+        path = self._get_path_for_id(id_str)
+        if not path:
+            return "1"  # Default to media directory if path not found
+
+        parent_path = os.path.dirname(path)
+        if not parent_path:
+            return "1"  # If no parent path, then parent is the media directory
+
+        return self._get_id_for_path(parent_path)
+
+    def _count_dir_children(self, dir_path):
+        """Count the number of media files and subdirectories in a directory"""
         count = 0
-        files = os.listdir(self.server_instance.media_directory)
-        for file in files:
-            file_path = os.path.join(self.server_instance.media_directory, file)
-            if os.path.isfile(file_path):
-                mime_type, _ = mimetypes.guess_type(file)
-                if mime_type and (
-                    mime_type.startswith("video/")
-                    or mime_type.startswith("audio/")
-                    or mime_type.startswith("image/")
-                ):
+        try:
+            for item in os.listdir(dir_path):
+                item_path = os.path.join(dir_path, item)
+                if os.path.isdir(item_path):
                     count += 1
+                elif os.path.isfile(item_path):
+                    mime_type, _ = mimetypes.guess_type(item)
+                    if mime_type and (
+                        mime_type.startswith("video/")
+                        or mime_type.startswith("audio/")
+                        or mime_type.startswith("image/")
+                    ):
+                        count += 1
+        except Exception as e:
+            print(f"Error counting directory children in {dir_path}: {e}")
         return count
+
+    def _create_media_item_didl(self, file_info, parent_id):
+        """Create DIDL-Lite XML for a media item"""
+        file_path = file_info["full_path"]
+        file_size = file_info["size"]
+        file = file_info["name"]
+        relative_path = file_info["path"]
+        mime_type = file_info["mime_type"]
+        file_id = file_info["id"]
+
+        # Use the relative path for the URL
+        encoded_path = quote(relative_path, safe="")
+        file_url = f"http://{self.server_instance.server_ip}:{self.server_instance.port}/media/{encoded_path}"
+
+        # Default values
+        dlna_profile = (
+            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"  # Generic
+        )
+        res_attrs = f'size="{file_size}"'
+        dc_date = "2024-01-01T00:00:00"  # Placeholder date
+        upnp_class = "object.item.videoItem"  # Default to video
+
+        if mime_type and mime_type.startswith("video/"):
+            if mime_type == "video/mp4":
+                dlna_profile = "DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                res_attrs = f'size="{file_size}" duration="01:30:00" resolution="1280x720" bitrate="4000000"'
+            elif mime_type == "video/x-msvideo":  # AVI
+                dlna_profile = "DLNA.ORG_PN=AVI;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                res_attrs = f'size="{file_size}" duration="00:45:00" resolution="720x576" bitrate="1500000"'
+            elif mime_type == "video/x-matroska" or file.lower().endswith(
+                ".mkv"
+            ):  # MKV
+                dlna_profile = "DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                res_attrs = f'size="{file_size}" duration="02:00:00" resolution="1920x1080" bitrate="8000000"'
+
+            escaped_title = html.escape(file)
+            protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
+
+            return (
+                f'<item id="{file_id}" parentID="{parent_id}" restricted="1">\n'
+                f"    <dc:title>{escaped_title}</dc:title>\n"
+                f"    <upnp:class>{upnp_class}</upnp:class>\n"
+                f"    <dc:creator>Unknown Creator</dc:creator>\n"
+                f"    <upnp:artist>Unknown Artist</upnp:artist>\n"
+                f"    <upnp:genre>Video</upnp:genre>\n"
+                f"    <dc:description>Video File: {escaped_title}</dc:description>\n"
+                f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
+                f"</item>"
+            )
+
+        elif mime_type and mime_type.startswith("audio/"):
+            upnp_class = "object.item.audioItem.musicTrack"
+            if mime_type == "audio/mpeg":  # MP3
+                dlna_profile = "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                res_attrs = f'size="{file_size}" duration="00:03:30" bitrate="320000"'
+            elif mime_type == "audio/wav":
+                dlna_profile = "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                res_attrs = f'size="{file_size}" duration="00:05:00" bitrate="1411200"'
+
+            escaped_title = html.escape(file)
+            protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
+
+            return (
+                f'<item id="{file_id}" parentID="{parent_id}" restricted="1">\n'
+                f"    <dc:title>{escaped_title}</dc:title>\n"
+                f"    <upnp:class>{upnp_class}</upnp:class>\n"
+                f"    <dc:creator>Unknown Artist</dc:creator>\n"
+                f"    <upnp:artist>Unknown Artist</upnp:artist>\n"
+                f"    <upnp:album>Unknown Album</upnp:album>\n"
+                f"    <upnp:genre>Music</upnp:genre>\n"
+                f"    <dc:date>{dc_date}</dc:date>\n"
+                f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
+                f"</item>"
+            )
+
+        elif mime_type and mime_type.startswith("image/"):
+            upnp_class = "object.item.imageItem.photo"
+            if mime_type == "image/jpeg":
+                dlna_profile = "DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
+                res_attrs = f'size="{file_size}" resolution="1920x1080"'
+            elif mime_type == "image/png":
+                dlna_profile = "DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
+                res_attrs = f'size="{file_size}" resolution="1920x1080"'
+
+            escaped_title = html.escape(file)
+            protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
+
+            return (
+                f'<item id="{file_id}" parentID="{parent_id}" restricted="1">\n'
+                f"    <dc:title>{escaped_title}</dc:title>\n"
+                f"    <upnp:class>{upnp_class}</upnp:class>\n"
+                f"    <dc:creator>Unknown Creator</dc:creator>\n"
+                f"    <upnp:artist>Unknown Artist</upnp:artist>\n"
+                f"    <dc:description>Image: {escaped_title}</dc:description>\n"
+                f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
+                f"</item>"
+            )
+
+        # Default case (should not happen if filtering correctly)
+        escaped_title = html.escape(file)
+        protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
+
+        return (
+            f'<item id="{file_id}" parentID="{parent_id}" restricted="1">\n'
+            f"    <dc:title>{escaped_title}</dc:title>\n"
+            f"    <upnp:class>object.item</upnp:class>\n"
+            f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
+            f"</item>"
+        )
