@@ -51,6 +51,8 @@ def is_safe_path(base_dir, requested_path):
 class DLNAHandler(BaseHTTPRequestHandler):
     def __init__(self, server_instance, *args, **kwargs):
         self.server_instance = server_instance
+        # Set default timeout for socket operations
+        self.timeout = 60  # 60 seconds timeout
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
@@ -823,11 +825,17 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         with open(file_path, "rb") as f:
                             # Stream the file in chunks rather than loading it all into memory
                             chunk_size = 8192  # 8KB chunks
+
+                            # Set a timeout for socket operations to prevent blocking
+                            self.wfile.flush()
+
                             while True:
                                 chunk = f.read(chunk_size)
                                 if not chunk:
                                     break
                                 self.wfile.write(chunk)
+                                # Periodically flush the output to ensure timely delivery
+                                self.wfile.flush()
                     except (BrokenPipeError, ConnectionResetError):
                         # Client disconnected, log and exit gracefully
                         print(
@@ -903,6 +911,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
             with open(file_path, "rb") as f:
                 f.seek(start)
                 remaining = content_length
+
+                # Set a timeout for socket operations to prevent blocking
+                self.wfile.flush()
+
                 while remaining > 0:
                     chunk_size = min(8192, remaining)
                     chunk = f.read(chunk_size)
@@ -910,6 +922,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         break
                     try:
                         self.wfile.write(chunk)
+                        self.wfile.flush()  # Flush after each chunk to ensure timely delivery
                         remaining -= len(chunk)
                     except BrokenPipeError:
                         # Client disconnected, log it and exit gracefully

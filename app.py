@@ -2,7 +2,7 @@ import os
 import socket
 import threading
 import time
-from http.server import HTTPServer
+from http.server import HTTPServer, ThreadingHTTPServer
 import mimetypes
 import argparse
 
@@ -26,6 +26,8 @@ class ZeroConfigDLNA:
         self.port = port
         self.server = None
         self.server_thread = None
+        # Set a default socket timeout
+        socket.setdefaulttimeout(60)  # 60 seconds timeout
         # Generate UUID based on media directory to force cache refresh when directory changes
         import hashlib
 
@@ -102,7 +104,12 @@ class ZeroConfigDLNA:
             count_media_files(self.media_directory)
             print(f"Found {media_count} media files to serve")
 
-            self.server = HTTPServer((self.server_ip, self.port), self.create_handler())
+            # Use ThreadingHTTPServer to handle concurrent requests
+            self.server = ThreadingHTTPServer(
+                (self.server_ip, self.port), self.create_handler()
+            )
+            # Set server-side timeout to ensure we don't block forever on client operations
+            self.server.timeout = 60  # 60 seconds timeout
             self.server_thread = threading.Thread(target=self.server.serve_forever)
             self.server_thread.daemon = True
             self.server_thread.start()
