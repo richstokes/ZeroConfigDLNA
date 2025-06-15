@@ -24,3 +24,6 @@ By contrast, `ZeroConfigDLNA` has nothing to configure. You simply run it and it
 
 ### Compatability
 So far I've tested this on my Sony TV. It works! Feel free to open an issue with the log output if you run into problems and I'll see if I can fix it. 
+
+### How It Works
+Curious about the technical details? Check out the [How It Works](how_it_works.md) documentation for a deep dive into DLNA, SSDP, and how this server is implemented.
