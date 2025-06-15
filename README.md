@@ -1,17 +1,22 @@
 # ZeroConfigDLNA
-Run one command, serve media to your TV!  
 
-Clone/download this repo and run:  
-`python app.py`  
+Share media from your computer to your TV with a single command.
 
-(By default it will serve media from the current directory)
+## Quick Start
 
-If you want to serve files from another directory, use the `-d` flag, e.g:  
-`python app.py -d ~/Downloads`  
+1. Clone or download this repository.
+2. Run the application:
+   ```bash
+   python app.py
+   ```
+   This will serve media from the current directory by default.
 
+3. To serve media from a different directory, use the `-d` flag:
+   ```bash
+   python app.py -d /path/to/your/media
+   ```
 
-This project uses features from the Python standard library. No other packages/setup is required to run.  
-
+This project uses only Python standard library features, so no additional packages or setup are required.
 
 &nbsp;
 
