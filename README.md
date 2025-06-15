@@ -16,7 +16,7 @@ Share media from your computer to your TV with a single command.
    python app.py -d /path/to/your/media
    ```
 
-This project uses only Python standard library features, so no additional packages or setup are required.
+This project uses only Python (3.4+) standard library features, so no additional packages or setup are required.
 
 &nbsp;
 
