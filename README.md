@@ -30,7 +30,7 @@ By contrast, `ZeroConfigDLNA` has nothing to configure. You simply run it and it
 
 ## Compatibility
 
-So far I've tested this on my Sony TV. It works!
+So far I've tested this on my Sony and Samsung TV's. It works great on both!
 
 Feel free to open an issue with the log output if you run into problems and I'll see if I can fix it.
 
