@@ -26,7 +26,6 @@ class ZeroConfigDLNA:
         self.port = port
         self.server = None
         self.server_thread = None
-        # Set a default socket timeout
         socket.setdefaulttimeout(60)  # 60 seconds timeout
         # Generate UUID based on media directory to force cache refresh when directory changes
         import hashlib
@@ -34,7 +33,7 @@ class ZeroConfigDLNA:
         path_hash = hashlib.md5(
             os.path.abspath(self.media_directory).encode()
         ).hexdigest()
-        self.device_uuid = f"65da942e-1984-4309-b2d5-{path_hash[:12]}"
+        self.device_uuid = f"65da942e-1984-4309-1234-{path_hash[:12]}"  # You may need to change this / make fully random if your TV is caching excessively
         self.server_ip = self.get_local_ip()
         self.running = False
         self.ssdp_server = SSDPServer(self)
