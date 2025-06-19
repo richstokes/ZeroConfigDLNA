@@ -21,6 +21,27 @@ This project uses only Python (3.4+) standard library features, so no additional
 &nbsp;
 
 
+## Install as a Linux Service
+You can install ZeroConfigDLNA as a systemd service by running this one-liner interactive install script. It will prompt you for the directory you wish to serve media from:
+```bash
+curl -fsSL https://raw.githubusercontent.com/richstokes/ZeroConfigDLNA/refs/heads/main/linux_install.sh -o /tmp/install.sh && sudo bash /tmp/install.sh && rm /tmp/install.sh
+```
+
+The service will then auto-start on boot.  
+
+```
+Service Management Commands:
+  Start:   sudo systemctl start zeroconfigdlna
+  Stop:    sudo systemctl stop zeroconfigdlna
+  Restart: sudo systemctl restart zeroconfigdlna
+  Status:  sudo systemctl status zeroconfigdlna
+  Logs:    sudo journalctl -u zeroconfigdlna -f
+```
+
+To upgrade or change the config, simply re-run the install script command above.  
+
+&nbsp;
+
 ## Why?
 
 I wanted something quick and easy that would let me share videos from my laptop to my TV. The DLNA/media server implementations I tried seemed to be extremely over-complicated, needed tons of configuration, or were heavyweight with various other features bolted on.
