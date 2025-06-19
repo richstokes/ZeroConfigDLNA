@@ -22,7 +22,7 @@ This project uses only Python (3.4+) standard library features, so no additional
 
 
 ## Install as a Linux Service
-You can install ZeroConfigDLNA as a systemd service by running this one-liner interactive install script. It will prompt you for the directory you wish to serve media from:
+You can install ZeroConfigDLNA as a systemd service by running this one-liner interactive [install script](https://github.com/richstokes/ZeroConfigDLNA/blob/main/linux_install.sh). It will prompt you for the directory you wish to serve media from:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/richstokes/ZeroConfigDLNA/refs/heads/main/linux_install.sh -o /tmp/install.sh && sudo bash /tmp/install.sh && rm /tmp/install.sh
 ```
