@@ -1,6 +1,6 @@
 # ZeroConfigDLNA
 
-Share media from your computer to your TV (or any other UPnP device!) with a single command.
+Share media from your computer to your TV (or any other UPnP device!) with a single command. Runs on Windows, Linux, and MacOS.  
 
 ## Quick Start
 
