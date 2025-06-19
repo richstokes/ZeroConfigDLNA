@@ -29,15 +29,6 @@ curl -fsSL https://raw.githubusercontent.com/richstokes/ZeroConfigDLNA/refs/head
 
 The service will then auto-start on boot.  
 
-```
-Service Management Commands:
-  Start:   sudo systemctl start zeroconfigdlna
-  Stop:    sudo systemctl stop zeroconfigdlna
-  Restart: sudo systemctl restart zeroconfigdlna
-  Status:  sudo systemctl status zeroconfigdlna
-  Logs:    sudo journalctl -u zeroconfigdlna -f
-```
-
 To upgrade or change the config, simply re-run the install script command above.  
 
 &nbsp;
