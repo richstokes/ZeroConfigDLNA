@@ -35,13 +35,13 @@ fi
 
 # Check if git is installed
 if ! command -v git &> /dev/null; then
-    echo -e "${YELLOW}Git not found. Please install with `apt-get install -y git` or similar.${NC}"
+    echo -e "${YELLOW}Git not found. Please install with 'apt-get install -y git' or similar.${NC}"
     exit 1
 fi
 
 # Check if python3 is installed
 if ! command -v python3 &> /dev/null; then
-    echo -e "${YELLOW}Python3 not found. Please install with `apt-get install -y python3` or similar.${NC}"
+    echo -e "${YELLOW}Python3 not found. Please install with 'apt-get install -y python3' or similar.${NC}"
     exit 1
 fi
 
