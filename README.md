@@ -38,7 +38,7 @@ curl -fsSL https://raw.githubusercontent.com/richstokes/ZeroConfigDLNA/refs/head
 
 The service will then auto-start on boot.  
 
-To upgrade or change the config, simply re-run the install script command above.  
+To upgrade or change the media directory, simply re-run the install script command above.  
 
 &nbsp;
 
