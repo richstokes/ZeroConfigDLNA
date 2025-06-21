@@ -4,7 +4,12 @@ Simple, cross-platform DLNA media server.
 
 Share media from your computer to your TV (or any other UPnP device!) with a single command. Runs on Windows, Linux, and MacOS.  
 
-## Quick Start
+## Quick Start - Windows
+Windows users can [download the latest release here](https://github.com/richstokes/ZeroConfigDLNA/releases). Copy the .exe to the directory you wish to serve files from.
+
+&nbsp;
+
+## Quick Start - Mac & Linux
 
 1. Clone or download this repository.
 2. Run the application:
@@ -24,7 +29,7 @@ This project uses only Python (3.4+) standard library features, so no additional
 
 
 ## Install as a Linux Service
-You can install ZeroConfigDLNA as a systemd service by running this one-liner interactive [install script](https://github.com/richstokes/ZeroConfigDLNA/blob/main/linux_install.sh). It will prompt you for the directory you wish to serve media from:
+Great for if you have a dedicated media server. You can install ZeroConfigDLNA as a systemd service by running this one-liner interactive [install script](https://github.com/richstokes/ZeroConfigDLNA/blob/main/linux_install.sh). It will prompt you for the directory you wish to serve media from:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/richstokes/ZeroConfigDLNA/refs/heads/main/linux_install.sh -o /tmp/install.sh && sudo bash /tmp/install.sh && rm /tmp/install.sh
 ```

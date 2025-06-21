@@ -157,7 +157,7 @@ jobs:
           - **Windows Executable**: ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe
           
           ### Usage
-          Simply download and run the executable. The DLNA server will start automatically.
+          Simply download and run the executable from the directory you wish to serve files from. The DLNA server will start automatically.
           
           ### Changes
           Built from latest main branch commit.
