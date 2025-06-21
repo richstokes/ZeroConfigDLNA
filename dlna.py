@@ -1917,6 +1917,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         capture_output=True,
                         text=True,
                         timeout=10,
+                        check=False,
                     )
 
                     if result.returncode == 0 and result.stdout.strip():
@@ -1937,6 +1938,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         capture_output=True,
                         text=True,
                         timeout=10,
+                        check=False,
                     )
 
                     if result.returncode == 0 and result.stdout.strip():
