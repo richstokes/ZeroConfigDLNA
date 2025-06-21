@@ -97,7 +97,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             super().log_message(format, *args)
         # If verbose is False or not set, don't log anything
 
-    def do_GET(self):
+    def do_GET(self):  # pylint: disable=invalid-name
         """Handle GET requests for media files and DLNA control"""
         try:
             parsed_path = urlparse(self.path)
@@ -140,7 +140,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print("Client disconnected while sending error response")
                 return
 
-    def do_HEAD(self):
+    def do_HEAD(self):  # pylint: disable=invalid-name
         """Handle HEAD requests for media files (for DLNA compatibility)"""
         try:
             parsed_path = urlparse(self.path)
@@ -171,7 +171,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print("Client disconnected while sending error response")
                 return
 
-    def do_POST(self):
+    def do_POST(self):  # pylint: disable=invalid-name
         """Handle SOAP requests for DLNA control"""
         try:
             if self.verbose:
@@ -203,7 +203,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print("Client disconnected while sending error response")
                 return
 
-    def do_SUBSCRIBE(self):
+    def do_SUBSCRIBE(self):  # pylint: disable=invalid-name
         """Handle UPnP event subscription requests"""
         try:
             if self.path == "/events":
@@ -225,7 +225,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print("Client disconnected while sending error response")
                 return
 
-    def do_UNSUBSCRIBE(self):
+    def do_UNSUBSCRIBE(self):  # pylint: disable=invalid-name
         """Handle UPnP event unsubscription requests"""
         try:
             if self.path == "/events":
@@ -247,7 +247,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print("Client disconnected while sending error response")
                 return
 
-    def do_OPTIONS(self):
+    def do_OPTIONS(self):  # pylint: disable=invalid-name
         """Handle OPTIONS requests for CORS"""
         try:
             self.send_response(200)
