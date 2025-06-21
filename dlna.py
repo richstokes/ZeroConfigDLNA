@@ -52,7 +52,18 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         # Set default timeout for socket operations (5 minutes)
         self.timeout = 300
-        super().__init__(*args, **kwargs)
+        try:
+            super().__init__(*args, **kwargs)
+        except (
+            BrokenPipeError,
+            ConnectionResetError,
+            ConnectionAbortedError,
+            OSError,
+        ) as e:
+            # Client disconnected during initialization - this is common with DLNA clients
+            # Just log it and return gracefully
+            print(f"Client disconnected during handler initialization: {e}")
+            return
 
     def setup(self):
         """Set up the connection with timeout"""
