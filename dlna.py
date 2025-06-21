@@ -1828,9 +1828,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             return self.directory_mapping[path]
 
         # If not found, add it to the mapping
-        new_id = str(
-            max(int(id) for id in self.directory_mapping.keys() if id.isdigit()) + 1
-        )
+        new_id = str(max(int(id) for id in self.directory_mapping if id.isdigit()) + 1)
         self.directory_mapping[new_id] = path
         self.directory_mapping[path] = new_id
         return new_id
@@ -1971,10 +1969,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
             # Return a reasonable default
             if mime_type and mime_type.startswith("video/"):
                 return "01:30:00"
-            elif mime_type and mime_type.startswith("audio/"):
+            if mime_type and mime_type.startswith("audio/"):
                 return "00:04:00"
-            else:
-                return "01:00:00"
+            return "01:00:00"
 
     def _seconds_to_hms(self, seconds):
         """Convert seconds to HH:MM:SS format"""
@@ -2113,7 +2110,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 f"</item>"
             )
 
-        elif mime_type and mime_type.startswith("audio/"):
+        if mime_type and mime_type.startswith("audio/"):
             upnp_class = "object.item.audioItem.musicTrack"
             if mime_type == "audio/mpeg":  # MP3
                 dlna_profile = "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
@@ -2140,7 +2137,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 f"</item>"
             )
 
-        elif mime_type and mime_type.startswith("image/"):
+        if mime_type and mime_type.startswith("image/"):
             upnp_class = "object.item.imageItem.photo"
             if mime_type == "image/jpeg":
                 dlna_profile = "DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
