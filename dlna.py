@@ -1665,11 +1665,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         self.server_instance.media_directory
                     )
                     didl_items.append(
-                        '<container id="1" parentID="0" restricted="1" searchable="1" childCount="{child_count}">\n'
+                        f'<container id="1" parentID="0" restricted="1" searchable="1" childCount="{child_count}">\n'
                         "    <dc:title>Media Library</dc:title>\n"
                         "    <upnp:class>object.container.storageFolder</upnp:class>\n"
                         "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
-                        "</container>".format(child_count=child_count)
+                        "</container>"
                     )
                     total_matches = 1
                     number_returned = 1
