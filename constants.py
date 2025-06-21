@@ -1,3 +1,9 @@
+"""Constants used throughout the ZeroConfigDLNA application.
+
+This module contains configuration constants including server information,
+hostname handling, and version details for the DLNA server.
+"""
+
 import os
 import socket
 
