@@ -50,10 +50,6 @@ def is_safe_path(base_dir, requested_path):
 
 class DLNAHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        # These will be set as class attributes by the server
-        # self.server_instance and self.verbose should be available
-        if hasattr(self, "verbose") and self.verbose:
-            print("Verbose logging enabled")
         # Set default timeout for socket operations
         self.timeout = 300
         super().__init__(*args, **kwargs)
