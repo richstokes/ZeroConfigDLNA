@@ -108,7 +108,7 @@ class ZeroConfigDLNA:
                 (self.server_ip, self.port), self.create_handler()
             )
             # Set server-side timeout to ensure we don't block forever on client operations
-            self.server.timeout = 60  # 60 seconds timeout
+            self.server.timeout = 300  # Long timeout for media streaming / pausing etc
             self.server_thread = threading.Thread(target=self.server.serve_forever)
             self.server_thread.daemon = True
             self.server_thread.start()
