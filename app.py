@@ -6,7 +6,6 @@ import socket
 import threading
 import time
 from http.server import ThreadingHTTPServer
-import mimetypes
 import argparse
 
 from constants import (
@@ -14,6 +13,7 @@ from constants import (
     SERVER_DESCRIPTION,
     SERVER_VERSION,
     SERVER_MANUFACTURER,
+    is_supported_media_file,
 )
 from dlna import DLNAHandler
 from ssdp import SSDPServer
@@ -112,12 +112,7 @@ class ZeroConfigDLNA:
                 for item in os.listdir(directory):
                     item_path = os.path.join(directory, item)
                     if os.path.isfile(item_path):
-                        mime_type, _ = mimetypes.guess_type(item)
-                        if mime_type and (
-                            mime_type.startswith("video/")
-                            or mime_type.startswith("audio/")
-                            or mime_type.startswith("image/")
-                        ):
+                        if is_supported_media_file(item_path):
                             media_count += 1
                     elif os.path.isdir(item_path):
                         # Recursively count files in subdirectories

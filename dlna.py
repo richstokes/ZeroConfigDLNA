@@ -20,6 +20,7 @@ from constants import (
     SERVER_DESCRIPTION,
     SERVER_VERSION,
     SERVER_MANUFACTURER,
+    is_supported_media_file,
 )
 
 
@@ -1869,12 +1870,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 if os.path.isdir(item_path):
                     count += 1
                 elif os.path.isfile(item_path):
-                    mime_type, _ = mimetypes.guess_type(item)
-                    if mime_type and (
-                        mime_type.startswith("video/")
-                        or mime_type.startswith("audio/")
-                        or mime_type.startswith("image/")
-                    ):
+                    if is_supported_media_file(item_path):
                         count += 1
         except Exception as e:
             print(f"Error counting directory children in {dir_path}: {e}")
