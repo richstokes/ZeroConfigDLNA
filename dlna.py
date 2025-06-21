@@ -863,8 +863,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 self.send_header("Server", SERVER_AGENT)
                 # Keep connection alive for better streaming performance
                 self.send_header("Connection", "keep-alive")
-                # Add cache control for better performance
-                self.send_header("Cache-Control", "no-cache")
+                # Add cache control for better performance - allow short-term caching
+                # The SystemUpdateID mechanism will handle cache invalidation
+                self.send_header("Cache-Control", "max-age=300, must-revalidate")
                 self.end_headers()
 
                 # Only send file content for GET requests, not HEAD
@@ -976,8 +977,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Server", SERVER_AGENT)
             # Keep connection alive for range requests
             self.send_header("Connection", "keep-alive")
-            # Add cache control
-            self.send_header("Cache-Control", "no-cache")
+            # Add cache control - allow short-term caching for range requests
+            self.send_header("Cache-Control", "max-age=3600")
             self.end_headers()
 
             with open(file_path, "rb") as f:
@@ -1290,15 +1291,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             if self.verbose:
                 print("Handling GetSystemUpdateID request")
 
-            # Generate a dynamic system update ID based on directory content to force cache refresh
-            import hashlib
-
-            content_hash = hashlib.md5(
-                str(sorted(os.listdir(self.server_instance.media_directory))).encode()
-            ).hexdigest()[:8]
-            system_update_id = str(
-                int(content_hash, 16) % 1000000
-            )  # Keep it reasonable size
+            # Use the server's managed system update ID
+            system_update_id = self.server_instance.get_system_update_id()
 
             response = f"""<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
@@ -1312,10 +1306,12 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/xml; charset=utf-8")
             self.send_header("Content-Length", str(len(response)))
+            # Allow reasonable caching of SystemUpdateID response
+            self.send_header("Cache-Control", "max-age=30")
             self.end_headers()
             self.wfile.write(response.encode())
             if self.verbose:
-                print("Sent GetSystemUpdateID response")
+                print(f"Sent GetSystemUpdateID response: {system_update_id}")
 
         except Exception as e:
             print(f"Error handling GetSystemUpdateID: {e}")
@@ -1402,15 +1398,23 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     f"StartingIndex: {starting_index}, RequestedCount: {requested_count}"
                 )
 
-            # Setup the directory structure mapping
-            if not hasattr(self, "directory_mapping"):
+            # Setup the directory structure mapping - refresh if cache was recently refreshed
+            if (
+                not hasattr(self, "directory_mapping")
+                or self.server_instance.should_refresh_directory_mapping()
+            ):
                 self.directory_mapping = self._create_directory_mapping()
+                if self.verbose:
+                    print("Refreshed directory mapping with current content")
 
             # Generate DIDL-Lite XML for media files
             didl_items = []
 
             # ObjectID 0 is the root container
             if object_id == "0" and browse_flag == "BrowseDirectChildren":
+                # Refresh cache when clients access the root container
+                self.server_instance.refresh_cache_on_root_access()
+
                 # Root: Show the main media directory as a container
                 # Count the actual children in the media directory
                 child_count = self._count_dir_children(
@@ -1428,6 +1432,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             # ObjectID 1 is the main media directory
             elif object_id == "1" and browse_flag == "BrowseDirectChildren":
+                # Refresh cache when clients access the main media library
+                self.server_instance.refresh_cache_on_root_access()
+
                 if self.verbose:
                     print(
                         f"Browsing main media directory: {self.server_instance.media_directory}"
@@ -1720,7 +1727,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
             if self.verbose:
                 print(f"Result: {number_returned} items of {total_matches} total")
 
-            # Create SOAP response
+            # Create SOAP response using the server's SystemUpdateID
+            system_update_id = self.server_instance.get_system_update_id()
+
             response = f"""<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
     <s:Body>
@@ -1728,36 +1737,23 @@ class DLNAHandler(BaseHTTPRequestHandler):
             <Result>{html.escape(didl_xml)}</Result>
             <NumberReturned>{number_returned}</NumberReturned>
             <TotalMatches>{total_matches}</TotalMatches>
-            <UpdateID>1</UpdateID>
+            <UpdateID>{system_update_id}</UpdateID>
         </u:BrowseResponse>
     </s:Body>
 </s:Envelope>"""
-
-            # Generate a dynamic UpdateID based on directory content to force cache refresh
-            import hashlib
-
-            content_hash = hashlib.md5(
-                str(sorted(os.listdir(self.server_instance.media_directory))).encode()
-            ).hexdigest()[:8]
-            update_id = int(content_hash, 16) % 1000000  # Keep it reasonable size
-
-            # Replace the static UpdateID with dynamic one
-            response = response.replace(
-                "<UpdateID>1</UpdateID>", f"<UpdateID>{update_id}</UpdateID>"
-            )
 
             self.send_response(200)
             self.send_header("Content-Type", 'text/xml; charset="utf-8"')
             self.send_header("Content-Length", str(len(response)))
             self.send_header("Ext", "")
             self.send_header("Server", SERVER_AGENT)
-            # Add cache-busting headers
-            self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
-            self.send_header("Pragma", "no-cache")
-            self.send_header("Expires", "0")
+            # Allow very short-term caching but ensure revalidation with server
+            self.send_header("Cache-Control", "max-age=10, must-revalidate")
             self.end_headers()
             self.wfile.write(response.encode())
-            print("Browse response sent")
+
+            if self.verbose:
+                print(f"Browse response sent with SystemUpdateID: {system_update_id}")
 
         except Exception as e:
             print(f"Browse request error: {e}")
