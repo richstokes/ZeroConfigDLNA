@@ -5,7 +5,7 @@ Simple, cross-platform DLNA media server.
 Share media from your computer to your TV (or any other UPnP device!) with a single command. Runs on Windows, Linux, and MacOS.  
 
 ## Quick Start - Windows
-Windows users can [download the latest release here](https://github.com/richstokes/ZeroConfigDLNA/releases). Copy the .exe to the directory you wish to serve files from.
+Windows users can [download the latest release here](https://github.com/richstokes/ZeroConfigDLNA/releases). Copy the .exe to the directory you wish to serve files from and double click to launch (you may need to accept the generic Windows security warning).
 
 &nbsp;
 
