@@ -50,9 +50,15 @@ def is_safe_path(base_dir, requested_path):
 
 class DLNAHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        # Set default timeout for socket operations
+        # Set default timeout for socket operations (5 minutes)
         self.timeout = 300
         super().__init__(*args, **kwargs)
+
+    def setup(self):
+        """Set up the connection with timeout"""
+        super().setup()
+        # Set socket timeout to prevent hanging connections
+        self.connection.settimeout(self.timeout)
 
     def log_message(self, format, *args):
         """Override BaseHTTPRequestHandler's log_message to only log when verbose mode is enabled"""
@@ -85,6 +91,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     print(f"Client: {self.client_address}")
                     print(f"User-Agent: {self.headers.get('User-Agent', 'Unknown')}")
                     print(f"Range: {self.headers.get('Range', 'None')}")
+
                 self.serve_media_file(path[7:])  # Remove '/media/' prefix
             else:
                 self.send_error(404, "File not found")
@@ -813,6 +820,12 @@ class DLNAHandler(BaseHTTPRequestHandler):
                             "contentFeatures.dlna.org",
                             "DLNA.ORG_PN=MP4_SD_AAC_LTP;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                         )
+                    elif mime_type == "video/x-matroska":
+                        # MKV files - use generic video profile with streaming support
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
                     else:
                         self.send_header(
                             "contentFeatures.dlna.org",
@@ -837,16 +850,20 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 self.send_header("transferMode.dlna.org", "Streaming")
                 # Add server identification and additional compatibility headers
                 self.send_header("Server", SERVER_AGENT)
-                # Add connection close to prevent hanging connections
-                self.send_header("Connection", "close")
+                # Keep connection alive for better streaming performance
+                self.send_header("Connection", "keep-alive")
+                # Add cache control for better performance
+                self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
 
                 # Only send file content for GET requests, not HEAD
                 if not head_only:
                     try:
                         with open(file_path, "rb") as f:
-                            # Stream the file in chunks rather than loading it all into memory
-                            chunk_size = 8192  # 8KB chunks
+                            # Use larger chunks for better performance with large files
+                            chunk_size = (
+                                65536  # 64KB chunks for better streaming performance
+                            )
 
                             # Set a timeout for socket operations to prevent blocking
                             self.wfile.flush()
@@ -855,9 +872,20 @@ class DLNAHandler(BaseHTTPRequestHandler):
                                 chunk = f.read(chunk_size)
                                 if not chunk:
                                     break
-                                self.wfile.write(chunk)
-                                # Periodically flush the output to ensure timely delivery
-                                self.wfile.flush()
+                                try:
+                                    self.wfile.write(chunk)
+                                    # Only flush every few chunks to improve performance
+                                    if f.tell() % (chunk_size * 4) == 0:
+                                        self.wfile.flush()
+                                except (BrokenPipeError, ConnectionResetError):
+                                    # Client disconnected during write
+                                    if self.verbose:
+                                        print(
+                                            f"Client disconnected during streaming of {decoded_filename}"
+                                        )
+                                    return
+                            # Final flush
+                            self.wfile.flush()
                     except (BrokenPipeError, ConnectionResetError):
                         # Client disconnected, log and exit gracefully
                         # This happens a lot due to how DLNA clients handle streaming
@@ -906,6 +934,12 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         "contentFeatures.dlna.org",
                         "DLNA.ORG_PN=MP4_SD_AAC_LTP;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
+                elif mime_type == "video/x-matroska":
+                    # MKV files - use generic video profile with streaming support
+                    self.send_header(
+                        "contentFeatures.dlna.org",
+                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                    )
                 else:
                     self.send_header(
                         "contentFeatures.dlna.org",
@@ -929,7 +963,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 )
             self.send_header("transferMode.dlna.org", "Streaming")
             self.send_header("Server", SERVER_AGENT)
-            self.send_header("Connection", "close")
+            # Keep connection alive for range requests
+            self.send_header("Connection", "keep-alive")
+            # Add cache control
+            self.send_header("Cache-Control", "no-cache")
             self.end_headers()
 
             with open(file_path, "rb") as f:
@@ -939,14 +976,23 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 # Set a timeout for socket operations to prevent blocking
                 self.wfile.flush()
 
+                # Use larger chunks for better performance
+                base_chunk_size = 65536  # 64KB base chunk size
+
                 while remaining > 0:
-                    chunk_size = min(8192, remaining)
+                    # Adaptive chunk size - larger for big remaining data
+                    chunk_size = min(base_chunk_size, remaining)
+                    if remaining > 1024 * 1024:  # If more than 1MB remaining
+                        chunk_size = min(128 * 1024, remaining)  # Use 128KB chunks
+
                     chunk = f.read(chunk_size)
                     if not chunk:
                         break
                     try:
                         self.wfile.write(chunk)
-                        self.wfile.flush()  # Flush after each chunk to ensure timely delivery
+                        # Only flush periodically to improve performance
+                        if remaining % (base_chunk_size * 4) == 0:
+                            self.wfile.flush()
                         remaining -= len(chunk)
                     except BrokenPipeError:
                         # Client disconnected, log it and exit gracefully
@@ -963,6 +1009,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
                                 f"Connection reset during streaming of {os.path.basename(file_path)}"
                             )
                         return
+                # Final flush
+                self.wfile.flush()
 
         except BrokenPipeError:
             # Client disconnected before we could send headers
