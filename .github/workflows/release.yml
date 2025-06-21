@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Build n Release Pipeline
 
 on:
   push:
@@ -191,7 +191,7 @@ jobs:
     steps:
     - name: Pipeline Summary
       run: |
-        echo "## 🚀 CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Build n Release Pipeline Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Version Bump:** ${{ needs.version-bump.result }}" >> $GITHUB_STEP_SUMMARY
         echo "**Windows Build:** ${{ needs.build-windows-exe.result }}" >> $GITHUB_STEP_SUMMARY
