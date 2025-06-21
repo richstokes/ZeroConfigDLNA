@@ -1,5 +1,7 @@
 # ZeroConfigDLNA
 
+Simple, cross-platform DLNA media server.  
+
 Share media from your computer to your TV (or any other UPnP device!) with a single command. Runs on Windows, Linux, and MacOS.  
 
 ## Quick Start
