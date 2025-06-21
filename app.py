@@ -57,7 +57,9 @@ class ZeroConfigDLNA:
             return "127.0.0.1"
 
     def create_handler(self):
-        """Create a handler class with server instance"""
+        """
+        Create a handler class with server instance
+        """
         server_ref = self
 
         class Handler(DLNAHandler):  # Create a subclass of DLNAHandler
