@@ -1,3 +1,10 @@
+"""
+DLNA media server handler module.
+
+This module provides the HTTP request handler for a DLNA media server,
+implementing the necessary DLNA and UPnP protocols for media streaming.
+"""
+
 import os
 import struct
 import subprocess
@@ -49,6 +56,14 @@ def is_safe_path(base_dir, requested_path):
 
 
 class DLNAHandler(BaseHTTPRequestHandler):
+    """
+    HTTP request handler for DLNA media server.
+
+    This class handles HTTP requests from DLNA clients, including device description,
+    service control point descriptions, browse requests, and media file streaming.
+    It implements the necessary DLNA and UPnP protocols for media server functionality.
+    """
+
     def __init__(self, *args, **kwargs):
         # Set default timeout for socket operations (5 minutes)
         self.timeout = 300
@@ -63,7 +78,6 @@ class DLNAHandler(BaseHTTPRequestHandler):
             # Client disconnected during initialization - this is common with DLNA clients
             # Just log it and return gracefully
             print(f"Client disconnected during handler initialization: {e}")
-            return
 
     def setup(self):
         """Set up the connection with timeout"""
