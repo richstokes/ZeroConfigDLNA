@@ -260,14 +260,6 @@ class ZeroConfigDLNA:
             ).hexdigest()
             return f"65da942e-1984-3309-1234-{path_hash[:12]}"
 
-    def regenerate_uuid(self):
-        """Regenerate the device UUID to force client cache refresh."""
-        old_uuid = self.device_uuid
-        self.device_uuid = self._generate_content_aware_uuid()
-        if self.verbose:
-            print(f"UUID regenerated: {old_uuid} -> {self.device_uuid}")
-        return self.device_uuid
-
 
 def main():
     parser = argparse.ArgumentParser(description=SERVER_DESCRIPTION)
@@ -290,23 +282,12 @@ def main():
         action="store_true",
         help="Enable verbose output",
     )
-    parser.add_argument(
-        "--new-uuid",
-        action="store_true",
-        help="Force generation of new device UUID to refresh client cache",
-    )
 
     args = parser.parse_args()
 
     server = ZeroConfigDLNA(
         media_directory=args.directory, port=args.port, verbose=args.verbose
     )
-
-    # Force new UUID if requested
-    if args.new_uuid:
-        server.regenerate_uuid()
-        print(f"✅ Generated new device UUID: {server.device_uuid}")
-
     server.run()
 
 
