@@ -940,7 +940,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 return
 
     def handle_range_request(self, file_path, file_size, mime_type, range_header):
-        """Handle HTTP range requests for streaming"""
+        """Handle HTTP range requests for streaming
+
+        Uses smaller chunk sizes compared to full file streaming to improve
+        responsiveness during video resume/seek operations and reduce choppiness.
+        """
         try:
             range_match = range_header.replace("bytes=", "").split("-")
             start = int(range_match[0]) if range_match[0] else 0
@@ -1007,22 +1011,25 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 # Set a timeout for socket operations to prevent blocking
                 self.wfile.flush()
 
-                # Use larger chunks for better performance
-                base_chunk_size = 65536  # 64KB base chunk size
+                # Use smaller chunks for range requests to improve resume/seek performance
+                # Large chunks can cause choppy playback when resuming video
+                base_chunk_size = 8192  # 8KB base chunk size for range requests
 
                 while remaining > 0:
-                    # Adaptive chunk size - larger for big remaining data
+                    # For range requests, use smaller chunks for better streaming
+                    # This helps with choppy playback when resuming videos
                     chunk_size = min(base_chunk_size, remaining)
-                    if remaining > 1024 * 1024:  # If more than 1MB remaining
-                        chunk_size = min(128 * 1024, remaining)  # Use 128KB chunks
+                    if remaining > 2 * 1024 * 1024:  # If more than 2MB remaining
+                        chunk_size = min(16 * 1024, remaining)  # Use 16KB chunks max
 
                     chunk = f.read(chunk_size)
                     if not chunk:
                         break
                     try:
                         self.wfile.write(chunk)
-                        # Only flush periodically to improve performance
-                        if remaining % (base_chunk_size * 4) == 0:
+                        # Flush more frequently for range requests to reduce latency
+                        # This helps with responsive seeking and resume functionality
+                        if remaining % (base_chunk_size * 2) == 0:
                             self.wfile.flush()
                         remaining -= len(chunk)
                     except BrokenPipeError:
