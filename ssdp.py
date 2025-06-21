@@ -1,3 +1,11 @@
+"""
+SSDP (Simple Service Discovery Protocol) server implementation for UPnP device discovery.
+
+This module provides SSDP server functionality to enable DLNA/UPnP device discovery
+on the network. It handles multicast M-SEARCH requests and sends NOTIFY messages
+to announce the media server's presence.
+"""
+
 import socket
 import threading
 import time
