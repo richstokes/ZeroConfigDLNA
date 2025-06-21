@@ -858,6 +858,36 @@ class DLNAHandler(BaseHTTPRequestHandler):
                             "contentFeatures.dlna.org",
                             "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                         )
+                    elif mime_type == "video/quicktime":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "video/x-ms-wmv":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "video/x-flv":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "video/webm":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "video/x-m4v":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "video/3gpp":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
                     else:
                         self.send_header(
                             "contentFeatures.dlna.org",
@@ -868,6 +898,36 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         self.send_header(
                             "contentFeatures.dlna.org",
                             "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "audio/wav":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type in ("audio/mp4", "audio/x-m4a"):
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "audio/flac":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "audio/ogg":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "audio/x-ms-wma":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        )
+                    elif mime_type == "audio/aiff":
+                        self.send_header(
+                            "contentFeatures.dlna.org",
+                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                         )
                     else:
                         self.send_header(
@@ -959,7 +1019,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(content_length))
             self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
             self.send_header("Accept-Ranges", "bytes")
-            # Add DLNA headers for better Sony TV compatibility
+            # Add DLNA headers for better device compatibility
             if mime_type.startswith("video/"):
                 if mime_type == "video/x-msvideo":
                     self.send_header(
@@ -977,6 +1037,18 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         "contentFeatures.dlna.org",
                         "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
+                elif mime_type in (
+                    "video/quicktime",
+                    "video/x-ms-wmv",
+                    "video/x-flv",
+                    "video/webm",
+                    "video/x-m4v",
+                    "video/3gpp",
+                ):
+                    self.send_header(
+                        "contentFeatures.dlna.org",
+                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                    )
                 else:
                     self.send_header(
                         "contentFeatures.dlna.org",
@@ -987,6 +1059,26 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     self.send_header(
                         "contentFeatures.dlna.org",
                         "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                    )
+                elif mime_type == "audio/wav":
+                    self.send_header(
+                        "contentFeatures.dlna.org",
+                        "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                    )
+                elif mime_type in ("audio/mp4", "audio/x-m4a"):
+                    self.send_header(
+                        "contentFeatures.dlna.org",
+                        "DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                    )
+                elif mime_type in (
+                    "audio/flac",
+                    "audio/ogg",
+                    "audio/x-ms-wma",
+                    "audio/aiff",
+                ):
+                    self.send_header(
+                        "contentFeatures.dlna.org",
+                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 else:
                     self.send_header(
@@ -1156,15 +1248,34 @@ class DLNAHandler(BaseHTTPRequestHandler):
         try:
             print("Handling GetProtocolInfo request")
 
-            # Define supported protocols
+            # Define supported protocols with expanded format support
             source_protocols = [
+                # Video formats
                 "http-get:*:video/mp4:DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                 "http-get:*:video/x-msvideo:DLNA.ORG_PN=AVI;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                 "http-get:*:video/x-matroska:DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/quicktime:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/x-ms-wmv:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/x-flv:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/webm:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/x-m4v:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:video/3gpp:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                # Audio formats
                 "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                 "http-get:*:audio/wav:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/mp4:DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/x-m4a:DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/flac:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/ogg:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/x-ms-wma:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                "http-get:*:audio/aiff:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                # Image formats
                 "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
                 "http-get:*:image/png:DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+                "http-get:*:image/gif:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+                "http-get:*:image/bmp:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+                "http-get:*:image/tiff:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+                "http-get:*:image/webp:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
             ]
 
             source_info = ",".join(source_protocols)
@@ -1885,11 +1996,25 @@ class DLNAHandler(BaseHTTPRequestHandler):
         try:
             # Default fallback durations based on file type
             default_durations = {
+                # Video formats
                 "video/mp4": "01:30:00",
                 "video/x-msvideo": "00:45:00",
                 "video/x-matroska": "02:00:00",
+                "video/quicktime": "01:15:00",
+                "video/x-ms-wmv": "01:00:00",
+                "video/x-flv": "00:30:00",
+                "video/webm": "01:00:00",
+                "video/x-m4v": "01:30:00",
+                "video/3gpp": "00:15:00",
+                # Audio formats
                 "audio/mpeg": "00:03:30",
                 "audio/wav": "00:05:00",
+                "audio/mp4": "00:04:00",
+                "audio/x-m4a": "00:04:00",
+                "audio/flac": "00:05:00",
+                "audio/ogg": "00:04:00",
+                "audio/x-ms-wma": "00:04:00",
+                "audio/aiff": "00:05:00",
             }
 
             # Try to get duration using ffprobe if available
@@ -2093,6 +2218,42 @@ class DLNAHandler(BaseHTTPRequestHandler):
             ):  # MKV
                 dlna_profile = "DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
                 res_attrs = f'size="{file_size}" duration="{duration}" resolution="1920x1080" bitrate="8000000"'
+            elif mime_type == "video/quicktime":  # MOV
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="1280x720" bitrate="4000000"'
+            elif mime_type == "video/x-ms-wmv":  # WMV
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="1024x768" bitrate="2000000"'
+            elif mime_type == "video/x-flv":  # FLV
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="640x480" bitrate="1000000"'
+            elif mime_type == "video/webm":  # WEBM
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="1280x720" bitrate="3000000"'
+            elif mime_type == "video/x-m4v":  # M4V
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="1280x720" bitrate="4000000"'
+            elif mime_type == "video/3gpp":  # 3GP
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" resolution="320x240" bitrate="500000"'
+            else:
+                # Default for unknown video formats
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}"'
 
             escaped_title = html.escape(file)
             protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
@@ -2114,11 +2275,44 @@ class DLNAHandler(BaseHTTPRequestHandler):
             if mime_type == "audio/mpeg":  # MP3
                 dlna_profile = "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
                 res_attrs = f'size="{file_size}" duration="{duration}" bitrate="320000"'
-            elif mime_type == "audio/wav":
+            elif mime_type == "audio/wav":  # WAV
                 dlna_profile = "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
                 res_attrs = (
                     f'size="{file_size}" duration="{duration}" bitrate="1411200"'
                 )
+            elif mime_type in ("audio/mp4", "audio/x-m4a"):  # AAC/M4A
+                dlna_profile = "DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                res_attrs = f'size="{file_size}" duration="{duration}" bitrate="320000"'
+            elif mime_type == "audio/flac":  # FLAC
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = (
+                    f'size="{file_size}" duration="{duration}" bitrate="1000000"'
+                )
+            elif mime_type == "audio/ogg":  # OGG
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" bitrate="320000"'
+            elif mime_type == "audio/x-ms-wma":  # WMA
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}" bitrate="256000"'
+            elif mime_type == "audio/aiff":  # AIFF
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = (
+                    f'size="{file_size}" duration="{duration}" bitrate="1411200"'
+                )
+            else:
+                # Default for unknown audio formats
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" duration="{duration}"'
 
             escaped_title = html.escape(file)
             protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
@@ -2144,6 +2338,32 @@ class DLNAHandler(BaseHTTPRequestHandler):
             elif mime_type == "image/png":
                 dlna_profile = "DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
                 res_attrs = f'size="{file_size}" resolution="1920x1080"'
+            elif mime_type == "image/gif":  # GIF
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" resolution="800x600"'
+            elif mime_type == "image/bmp":  # BMP
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" resolution="1024x768"'
+            elif mime_type == "image/tiff":  # TIFF
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" resolution="2048x1536"'
+            elif mime_type == "image/webp":  # WEBP
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}" resolution="1920x1080"'
+            else:
+                # Default for unknown image formats
+                dlna_profile = (
+                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000"
+                )
+                res_attrs = f'size="{file_size}"'
 
             escaped_title = html.escape(file)
             protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
