@@ -14,8 +14,9 @@ class SSDPServer:
     MULTICAST_IP = "239.255.255.250"
     MULTICAST_PORT = 1900
 
-    def __init__(self, server_instance):
+    def __init__(self, server_instance, verbose=False):
         self.server_instance = server_instance
+        self.verbose = verbose
         self.socket = None
         self.running = False
         self.thread = None
@@ -56,8 +57,9 @@ class SSDPServer:
             self.notify_thread.daemon = True
             self.notify_thread.start()
 
-            print("SSDP server started for UPnP discovery")
-            print(f"Listening on {self.MULTICAST_IP}:{self.MULTICAST_PORT}")
+            if self.verbose:
+                print("SSDP server started for UPnP discovery")
+                print(f"Listening on {self.MULTICAST_IP}:{self.MULTICAST_PORT}")
             return True
 
         except Exception as e:
@@ -67,7 +69,8 @@ class SSDPServer:
     def stop(self):
         """Stop the SSDP server"""
         if self.running:
-            print("Stopping SSDP server...")
+            if self.verbose:
+                print("Stopping SSDP server...")
             self._send_notify_byebye()
             self.running = False
             if self.socket:
@@ -85,7 +88,8 @@ class SSDPServer:
                     self._handle_request(data.decode("utf-8", errors="ignore"), addr)
             except Exception as e:
                 if self.running:
-                    print(f"SSDP listen error: {e}")
+                    if self.verbose:
+                        print(f"SSDP listen error: {e}")
                 break
 
     def _handle_request(self, data, addr):
@@ -154,7 +158,8 @@ class SSDPServer:
             sock.sendto(response.encode(), addr)
             sock.close()
         except Exception as e:
-            print(f"Error sending SSDP response: {e}")
+            if self.verbose:
+                print(f"Error sending SSDP response: {e}")
 
     def _send_notify_alive(self):
         """Send NOTIFY alive messages"""
@@ -230,9 +235,11 @@ class SSDPServer:
                 sock.sendto(message.encode(), (self.MULTICAST_IP, self.MULTICAST_PORT))
                 time.sleep(0.1)  # Small delay between messages
             sock.close()
-            print("Sent SSDP NOTIFY alive messages")
+            if self.verbose:
+                print("Sent SSDP NOTIFY alive messages")
         except Exception as e:
-            print(f"Error sending SSDP NOTIFY: {e}")
+            if self.verbose:
+                print(f"Error sending SSDP NOTIFY: {e}")
 
     def _send_notify_byebye(self):
         """Send NOTIFY byebye messages when shutting down"""
@@ -272,9 +279,11 @@ class SSDPServer:
                 sock.sendto(message.encode(), (self.MULTICAST_IP, self.MULTICAST_PORT))
                 time.sleep(0.1)
             sock.close()
-            print("Sent SSDP NOTIFY byebye messages")
+            if self.verbose:
+                print("Sent SSDP NOTIFY byebye messages")
         except Exception as e:
-            print(f"Error sending SSDP byebye: {e}")
+            if self.verbose:
+                print(f"Error sending SSDP byebye: {e}")
 
     def _periodic_notify(self):
         """Send periodic NOTIFY alive messages"""

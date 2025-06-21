@@ -36,7 +36,7 @@ class ZeroConfigDLNA:
         self.device_uuid = f"65da942e-1984-3309-1234-{path_hash[:12]}"  # You may need to change this / make fully random if your TV is caching excessively
         self.server_ip = self.get_local_ip()
         self.running = False
-        self.ssdp_server = SSDPServer(self)
+        self.ssdp_server = SSDPServer(self, verbose=self.verbose)
 
     def get_local_ip(self):
         """Get the local IP address"""

@@ -1094,7 +1094,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
             self.wfile.write(response.encode())
-            print("Sent GetProtocolInfo response")
+            if self.verbose:
+                print("Sent GetProtocolInfo response")
 
         except Exception as e:
             print(f"Error handling GetProtocolInfo: {e}")
@@ -1120,7 +1121,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
             self.wfile.write(response.encode())
-            print("Sent GetCurrentConnectionIDs response")
+            if self.verbose:
+                print("Sent GetCurrentConnectionIDs response")
 
         except Exception as e:
             print(f"Error handling GetCurrentConnectionIDs: {e}")
@@ -1152,7 +1154,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
             self.wfile.write(response.encode())
-            print("Sent GetCurrentConnectionInfo response")
+            if self.verbose:
+                print("Sent GetCurrentConnectionInfo response")
 
         except Exception as e:
             print(f"Error handling GetCurrentConnectionInfo: {e}")
@@ -1181,7 +1184,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
             self.wfile.write(response.encode())
-            print("Sent GetSearchCapabilities response")
+            if self.verbose:
+                print("Sent GetSearchCapabilities response")
 
         except Exception as e:
             print(f"Error handling GetSearchCapabilities: {e}")
@@ -1210,7 +1214,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
             self.wfile.write(response.encode())
-            print("Sent GetSortCapabilities response")
+            if self.verbose:
+                print("Sent GetSortCapabilities response")
 
         except Exception as e:
             print(f"Error handling GetSortCapabilities: {e}")
@@ -1247,7 +1252,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response)))
             self.end_headers()
             self.wfile.write(response.encode())
-            print("Sent GetSystemUpdateID response")
+            if self.verbose:
+                print("Sent GetSystemUpdateID response")
 
         except Exception as e:
             print(f"Error handling GetSystemUpdateID: {e}")
