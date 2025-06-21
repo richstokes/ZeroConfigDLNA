@@ -8,6 +8,7 @@ implementing the necessary DLNA and UPnP protocols for media streaming.
 import os
 import struct
 import subprocess
+import uuid
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import unquote, urlparse, quote
 import mimetypes
@@ -72,6 +73,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         # Set default timeout for socket operations (5 minutes)
         self.timeout = 300
+        # Initialize directory mapping attribute
+        self.directory_mapping = None
         try:
             super().__init__(*args, **kwargs)
         except (
@@ -1820,7 +1823,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
     def _get_id_for_path(self, path):
         """Get the ID for a specific path"""
-        if not hasattr(self, "directory_mapping"):
+        if self.directory_mapping is None:
             self.directory_mapping = self._create_directory_mapping()
 
         # Check if the path exists in the mapping
@@ -1835,7 +1838,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
     def _get_path_for_id(self, id_str):
         """Get the path for a specific ID"""
-        if not hasattr(self, "directory_mapping"):
+        if self.directory_mapping is None:
             self.directory_mapping = self._create_directory_mapping()
 
         return self.directory_mapping.get(id_str)
@@ -2180,8 +2183,6 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print(f"SUBSCRIBE Headers: {dict(self.headers)}")
 
             # Generate a simple subscription ID
-            import uuid
-
             sid = str(uuid.uuid4())
 
             # Basic subscription response
