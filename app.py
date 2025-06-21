@@ -40,7 +40,6 @@ class ZeroConfigDLNA:
         self._system_update_id = (
             int(time.time()) % 1000000
         )  # Start with timestamp-based ID
-        self._last_refresh_time = 0
         self.ssdp_server = SSDPServer(self, verbose=self.verbose)
 
     def get_local_ip(self):
@@ -167,16 +166,11 @@ class ZeroConfigDLNA:
         This forces clients to refresh their directory cache.
         """
         self._system_update_id += 1
-        self._last_refresh_time = time.time()
 
         if self.verbose:
             print(
                 f"Root folder accessed - refreshed SystemUpdateID to {self._system_update_id}"
             )
-
-    def should_refresh_directory_mapping(self):
-        """Check if directory mapping should be refreshed (within last 5 seconds of cache refresh)."""
-        return time.time() - self._last_refresh_time < 5
 
     def get_system_update_id(self):
         """Get the current system update ID."""
@@ -184,81 +178,49 @@ class ZeroConfigDLNA:
 
     def _generate_content_aware_uuid(self):
         """
-        Generate a UUID that changes when directory content changes significantly.
-        This forces DLNA clients to refresh their cache when they see a 'new' device.
-
-        The UUID includes:
-        - Directory path (for basic stability)
-        - File count and total size (changes when files added/removed)
-        - Hash of file names (changes when files renamed/moved)
+        Generate a UUID that changes periodically to force client cache refresh.
+        Balances stability (for client resume) with freshness (for updated content).
         """
         try:
-            # Start with directory path for basic stability
+            # Directory path for basic stability
             path_hash = hashlib.md5(
                 os.path.abspath(self.media_directory).encode()
             ).hexdigest()[:8]
 
-            # Get directory content signature
-            file_count = 0
-            total_size = 0
-            file_names = []
-
-            for root, dirs, files in os.walk(self.media_directory):
-                # Sort for consistency
-                files.sort()
-
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    try:
-                        # Only count media files
-                        mime_type, _ = mimetypes.guess_type(file_path)
-                        if mime_type and (
-                            mime_type.startswith("video/")
-                            or mime_type.startswith("audio/")
-                            or mime_type.startswith("image/")
-                        ):
-                            stat_info = os.stat(file_path)
-                            file_count += 1
-                            total_size += stat_info.st_size
-                            # Use relative path for consistency
-                            rel_path = os.path.relpath(file_path, self.media_directory)
-                            file_names.append(rel_path)
-                    except OSError:
-                        continue
-
-            # Create content signature - focus on structure, not individual file changes
-            file_names.sort()  # Ensure consistent ordering
-            # Use just count and size brackets to avoid changing too frequently
-            size_bracket = total_size // (100 * 1024 * 1024)  # Changes every 100MB
-            content_string = f"{file_count}:{size_bracket}:{hashlib.md5(':'.join(file_names).encode()).hexdigest()[:8]}"
-            content_hash = hashlib.md5(content_string.encode()).hexdigest()[:8]
-
-            # Add a time-based component that changes every few hours to force periodic refresh
-            # This ensures clients get fresh content even if file structure hasn't changed much
-            time_bracket = int(time.time()) // (4 * 3600)  # Changes every 4 hours
+            # Time component that changes every 4 hours
+            time_bracket = int(time.time()) // (4 * 3600)
             time_hash = hashlib.md5(str(time_bracket).encode()).hexdigest()[:4]
 
-            # Combine path, content, and time for UUID
-            uuid_string = (
-                f"65da942e-1984-3309-{time_hash}-{content_hash[:8]}{path_hash[8:12]}"
-            )
+            # Simple file count for content awareness (fast to calculate)
+            try:
+                file_count = len(
+                    [
+                        f
+                        for f in os.listdir(self.media_directory)
+                        if os.path.isfile(os.path.join(self.media_directory, f))
+                    ]
+                )
+                count_hash = hashlib.md5(str(file_count).encode()).hexdigest()[:4]
+            except OSError:
+                count_hash = "0000"
+
+            uuid_string = f"65da942e-1984-3309-{time_hash}-{count_hash}{path_hash[:8]}"
 
             if self.verbose:
-                print(f"Generated content-aware UUID: {uuid_string}")
                 print(
-                    f"Content signature: {file_count} files, {total_size//1024//1024}MB"
+                    f"Generated UUID: {uuid_string} (changes every 4h or when files added/removed)"
                 )
 
             return uuid_string
 
         except Exception as e:
             if self.verbose:
-                print(f"Error generating content-aware UUID: {e}")
-            # Fallback to simple path-based UUID
+                print(f"Error generating UUID: {e}")
+            # Simple fallback
             path_hash = hashlib.md5(
                 os.path.abspath(self.media_directory).encode()
             ).hexdigest()
-            return f"65da942e-1984-3309-1234-{path_hash[:12]}"
+            return f"65da942e-1984-3309-1234-{path_hash[:12]}"  # Fallback UUID
 
 
 def main():

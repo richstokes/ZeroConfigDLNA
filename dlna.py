@@ -1398,14 +1398,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     f"StartingIndex: {starting_index}, RequestedCount: {requested_count}"
                 )
 
-            # Setup the directory structure mapping - refresh if cache was recently refreshed
-            if (
-                not hasattr(self, "directory_mapping")
-                or self.server_instance.should_refresh_directory_mapping()
-            ):
-                self.directory_mapping = self._create_directory_mapping()
-                if self.verbose:
-                    print("Refreshed directory mapping with current content")
+            # Setup the directory structure mapping - regenerate on each browse for fresh content
+            # This is simpler and ensures clients always see current directory state
+            self.directory_mapping = self._create_directory_mapping()
 
             # Generate DIDL-Lite XML for media files
             didl_items = []
