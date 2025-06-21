@@ -90,7 +90,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         # Set socket timeout to prevent hanging connections
         self.connection.settimeout(self.timeout)
 
-    def log_message(self, format, *args):
+    def log_message(self, format, *args):  # pylint: disable=redefined-builtin
         """Override BaseHTTPRequestHandler's log_message to only log when verbose mode is enabled"""
         if hasattr(self, "verbose") and self.verbose:
             # Use the default logging behavior from BaseHTTPRequestHandler
