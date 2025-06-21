@@ -6,6 +6,9 @@ on:
     paths-ignore:
       - 'constants.py'  # Prevent infinite loop when we update constants.py
 
+permissions:
+  contents: write
+
 jobs:
   version-bump:
     runs-on: ubuntu-latest
