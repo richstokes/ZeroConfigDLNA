@@ -64,6 +64,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
     It implements the necessary DLNA and UPnP protocols for media server functionality.
     """
 
+    # Class attributes that will be set by the server instance
+    # These are set dynamically in app.py when creating the Handler subclass
+    server_instance = None  # Reference to the ZeroConfigDLNA server instance
+    verbose = False  # Verbose logging flag
+
     def __init__(self, *args, **kwargs):
         # Set default timeout for socket operations (5 minutes)
         self.timeout = 300
