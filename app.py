@@ -30,11 +30,15 @@ class ZeroConfigDLNA:
         self.verbose = verbose
         socket.setdefaulttimeout(60)  # 60 seconds timeout
 
-        # Generate UUID that includes directory content signature
-        # This forces client cache refresh when content changes significantly
-        self.device_uuid = self._generate_content_aware_uuid()
+        # Generate UUID based on directory content hash
+        # This forces client cache refresh only when content actually changes
+        self.device_uuid = self._generate_content_hash_uuid()
         self.server_ip = self.get_local_ip()
         self.running = False
+
+        # Track directory content hash to detect changes
+        self._content_hash = None
+        self._last_hash_check = 0
 
         # Simple counter that increments on root folder access to force refresh
         self._system_update_id = (
@@ -163,64 +167,112 @@ class ZeroConfigDLNA:
     def refresh_cache_on_root_access(self):
         """
         Increment SystemUpdateID when clients access the root media folder.
-        This forces clients to refresh their directory cache.
+        Also check if content has changed and update UUID if needed.
         """
         self._system_update_id += 1
+
+        # Check if content has changed and update UUID if needed
+        content_changed = self.has_content_changed()
 
         if self.verbose:
             print(
                 f"Root folder accessed - refreshed SystemUpdateID to {self._system_update_id}"
             )
+            if content_changed:
+                print("Content change detected - UUID updated")
 
     def get_system_update_id(self):
         """Get the current system update ID."""
         return self._system_update_id
 
-    def _generate_content_aware_uuid(self):
+    def _get_directory_content_hash(self):
         """
-        Generate a UUID that changes periodically to force client cache refresh.
-        Balances stability (for client resume) with freshness (for updated content).
+        Generate a hash of all directory contents (files and subdirectories).
+        This changes when files are added, removed, renamed, or modified.
         """
         try:
-            # Directory path for basic stability
-            path_hash = hashlib.md5(
-                os.path.abspath(self.media_directory).encode()
-            ).hexdigest()[:8]
+            content_items = []
 
-            # Time component that changes every 4 hours
-            time_bracket = int(time.time()) // (4 * 3600)
-            time_hash = hashlib.md5(str(time_bracket).encode()).hexdigest()[:4]
+            for root, dirs, files in os.walk(self.media_directory):
+                # Sort for consistent ordering
+                dirs.sort()
+                files.sort()
 
-            # Simple file count for content awareness (fast to calculate)
-            try:
-                file_count = len(
-                    [
-                        f
-                        for f in os.listdir(self.media_directory)
-                        if os.path.isfile(os.path.join(self.media_directory, f))
-                    ]
-                )
-                count_hash = hashlib.md5(str(file_count).encode()).hexdigest()[:4]
-            except OSError:
-                count_hash = "0000"
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        # Get relative path for portability
+                        rel_path = os.path.relpath(file_path, self.media_directory)
+                        stat_info = os.stat(file_path)
+                        # Include path, size, and modification time
+                        content_items.append(
+                            f"{rel_path}:{stat_info.st_size}:{int(stat_info.st_mtime)}"
+                        )
+                    except OSError:
+                        continue
 
-            uuid_string = f"65da942e-1984-3309-{time_hash}-{count_hash}{path_hash[:8]}"
-
-            if self.verbose:
-                print(
-                    f"Generated UUID: {uuid_string} (changes every 4h or when files added/removed)"
-                )
-
-            return uuid_string
+            # Create hash from all content info
+            content_string = "\n".join(content_items)
+            return hashlib.md5(content_string.encode()).hexdigest()[:12]
 
         except Exception as e:
             if self.verbose:
-                print(f"Error generating UUID: {e}")
-            # Simple fallback
-            path_hash = hashlib.md5(
-                os.path.abspath(self.media_directory).encode()
-            ).hexdigest()
-            return f"65da942e-1984-3309-1234-{path_hash[:12]}"  # Fallback UUID
+                print(f"Error calculating content hash: {e}")
+            # Fallback to timestamp
+            return hashlib.md5(str(int(time.time())).encode()).hexdigest()[:12]
+
+    def _generate_content_hash_uuid(self):
+        """
+        Generate a UUID that changes only when directory content changes.
+        Much more efficient than time-based refresh.
+        """
+        # Directory path for basic stability
+        path_hash = hashlib.md5(
+            os.path.abspath(self.media_directory).encode()
+        ).hexdigest()[:8]
+
+        # Content hash that changes when files change
+        content_hash = self._get_directory_content_hash()
+
+        # Store the content hash for later comparison
+        self._content_hash = content_hash
+
+        uuid_string = (
+            f"65da942e-1984-3309-{content_hash[:4]}-{content_hash[4:8]}{path_hash[:4]}"
+        )
+
+        if self.verbose:
+            print(f"Generated content-hash UUID: {uuid_string}")
+            print(f"Content hash: {content_hash}")
+
+        return uuid_string
+
+    def has_content_changed(self):
+        """
+        Check if directory content has changed since last check.
+        Only recalculates hash every 30 seconds to avoid excessive disk I/O.
+        """
+        current_time = time.time()
+
+        # Don't check too frequently to avoid performance issues
+        if current_time - self._last_hash_check < 30:
+            return False
+
+        self._last_hash_check = current_time
+        current_hash = self._get_directory_content_hash()
+
+        if current_hash != self._content_hash:
+            if self.verbose:
+                print(f"Content changed: {self._content_hash} -> {current_hash}")
+            self._content_hash = current_hash
+            # Regenerate UUID with new content hash
+            old_uuid = self.device_uuid
+            self.device_uuid = self._generate_content_hash_uuid()
+            if self.verbose:
+                print(f"UUID updated: {old_uuid} -> {self.device_uuid}")
+            return True
+
+        return False
 
 
 def main():
