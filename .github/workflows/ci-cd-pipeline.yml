@@ -4,7 +4,6 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-      - 'packages/**'           # Ignore our own package updates
       - 'README.md'            # Ignore documentation changes
       - 'LICENSE'              # Ignore license changes
       - '*.md'                 # Ignore other markdown files
@@ -175,35 +174,12 @@ jobs:
         asset_name: ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe
         asset_content_type: application/octet-stream
 
-    - name: Update packages directory
+    - name: Build summary
       run: |
-        # Create packages directory if it doesn't exist
-        mkdir -p packages
-        
-        # Copy the executable to packages directory
-        cp "./dist/ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe" "./packages/"
-        
-        # Create a latest symlink/copy
-        cp "./dist/ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe" "./packages/ZeroConfigDLNA-latest.exe"
-        
-        echo "Files copied to packages directory"
-        ls -la packages/
-      shell: bash
-
-    - name: Commit packages to repository
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        
-        git add packages/
-        
-        # Only commit if there are changes
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "chore: add Windows executable v${{ steps.version.outputs.version }} [skip ci]"
-          git push
-        fi
+        echo "✅ Windows executable built successfully"
+        echo "📦 Artifact: ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe"
+        echo "🏷️ Release: v${{ steps.version.outputs.version }}"
+        echo "📥 Download will be available from GitHub Releases"
       shell: bash
 
   # Job 3: Summary/Notification (depends on build completion)
@@ -228,5 +204,6 @@ jobs:
         if [ "${{ needs.build-windows-exe.result }}" == "success" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Release Created:** [v${{ needs.version-bump.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version-bump.outputs.version }})" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **Executable:** ZeroConfigDLNA-${{ needs.version-bump.outputs.version }}.exe" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Download:** ZeroConfigDLNA-${{ needs.version-bump.outputs.version }}.exe" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **Direct Link:** [Download Latest Release](https://github.com/${{ github.repository }}/releases/latest)" >> $GITHUB_STEP_SUMMARY
         fi
