@@ -1,9 +1,10 @@
+import os
 import socket
 
 # Get hostname, truncate at first dot, then limit to 16 chars max
 hostname = socket.gethostname().split(".")[0][:16]
 
-SERVER_NAME = f"ZeroConfigDLNA_{hostname}"
+SERVER_NAME = os.environ.get("DLNA_HOSTNAME") or f"ZeroConfigDLNA_{hostname}"
 SERVER_DESCRIPTION = "ZeroConfigDLNA Server"
 SERVER_VERSION = "1.0.0"
 SERVER_MANUFACTURER = "richstokes"
