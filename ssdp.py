@@ -28,6 +28,7 @@ class SSDPServer:
         self.socket = None
         self.running = False
         self.thread = None
+        self.notify_thread = None
 
     def start(self):
         """Start the SSDP server"""
@@ -85,6 +86,8 @@ class SSDPServer:
                 self.socket.close()
             if self.thread:
                 self.thread.join(timeout=5)
+            if self.notify_thread:
+                self.notify_thread.join(timeout=5)
 
     def _listen(self):
         """Listen for SSDP M-SEARCH requests"""
