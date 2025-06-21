@@ -225,14 +225,6 @@ class DLNAHandler(BaseHTTPRequestHandler):
             print(f"Error handling OPTIONS request: {str(e)}")
             # Don't try to send an error response for OPTIONS requests
 
-    def log_message(self, format, *args):
-        """Override to add more detailed logging"""
-        print(f"{self.client_address[0]} - {format % args}")
-
-    def version_string(self):
-        """Return server version string"""
-        return SERVER_AGENT
-
     def send_device_description(self):
         """Send UPnP device description XML"""
         device_xml = f"""<?xml version="1.0" encoding="utf-8"?>
