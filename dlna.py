@@ -128,12 +128,18 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         """Handle SOAP requests for DLNA control"""
         try:
+            print(f"POST request: {self.path}")
+            print(f"POST Headers: {dict(self.headers)}")
+            print(f"Client: {self.client_address}")
+
             if self.path == "/control":
                 content_length = int(self.headers.get("Content-Length", 0))
                 post_data = self.rfile.read(content_length)
                 soap_action = self.headers.get("SOAPAction", "").strip('"')
+                print(f"SOAP Action: {soap_action}")
                 self.handle_soap_request(post_data, soap_action)
             else:
+                print(f"POST to unknown path: {self.path}")
                 self.send_error(404, "Not found")
         except (BrokenPipeError, ConnectionResetError):
             # Client disconnected during request processing
@@ -218,6 +224,14 @@ class DLNAHandler(BaseHTTPRequestHandler):
         except Exception as e:
             print(f"Error handling OPTIONS request: {str(e)}")
             # Don't try to send an error response for OPTIONS requests
+
+    def log_message(self, format, *args):
+        """Override to add more detailed logging"""
+        print(f"{self.client_address[0]} - {format % args}")
+
+    def version_string(self):
+        """Return server version string"""
+        return SERVER_AGENT
 
     def send_device_description(self):
         """Send UPnP device description XML"""
@@ -399,6 +413,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
         <stateVariable sendEvents="no">
             <name>A_ARG_TYPE_Result</name>
             <dataType>string</dataType>
+        </stateVariable>
+        <stateVariable sendEvents="no">
+            <name>A_ARG_TYPE_UpdateID</name>
+            <dataType>ui4</dataType>
         </stateVariable>
         <stateVariable sendEvents="no">
             <name>SearchCapabilities</name>
@@ -1235,39 +1253,69 @@ class DLNAHandler(BaseHTTPRequestHandler):
             object_id = "0"  # Default to root
             browse_flag = "BrowseDirectChildren"  # Default
 
-            # Extract ObjectID from SOAP
-            if "<ObjectID>" in soap_data:
-                start = soap_data.find("<ObjectID>") + len("<ObjectID>")
-                end = soap_data.find("</ObjectID>", start)
-                if end > start:
-                    object_id = soap_data[start:end]
+            # Extract ObjectID from SOAP - handle XML with attributes
+            if "<ObjectID" in soap_data:
+                # Find the opening tag (might have attributes)
+                start_tag_start = soap_data.find("<ObjectID")
+                if start_tag_start != -1:
+                    # Find the end of the opening tag
+                    start_tag_end = soap_data.find(">", start_tag_start)
+                    if start_tag_end != -1:
+                        # Find the closing tag
+                        end_tag_start = soap_data.find("</ObjectID>", start_tag_end)
+                        if end_tag_start != -1:
+                            # Extract the content between tags
+                            object_id = soap_data[
+                                start_tag_end + 1 : end_tag_start
+                            ].strip()
+                            print(f"Extracted ObjectID: '{object_id}'")
 
-            # Extract BrowseFlag from SOAP
-            if "<BrowseFlag>" in soap_data:
-                start = soap_data.find("<BrowseFlag>") + len("<BrowseFlag>")
-                end = soap_data.find("</BrowseFlag>", start)
-                if end > start:
-                    browse_flag = soap_data[start:end]
+            # Extract BrowseFlag from SOAP - handle XML with attributes
+            if "<BrowseFlag" in soap_data:
+                start_tag_start = soap_data.find("<BrowseFlag")
+                if start_tag_start != -1:
+                    start_tag_end = soap_data.find(">", start_tag_start)
+                    if start_tag_end != -1:
+                        end_tag_start = soap_data.find("</BrowseFlag>", start_tag_end)
+                        if end_tag_start != -1:
+                            browse_flag = soap_data[
+                                start_tag_end + 1 : end_tag_start
+                            ].strip()
+                            print(f"Extracted BrowseFlag: '{browse_flag}'")
 
-            # Extract StartingIndex and RequestedCount from SOAP
+            # Extract StartingIndex and RequestedCount from SOAP - handle XML with attributes
             starting_index = 0
             requested_count = None
-            if "<StartingIndex>" in soap_data:
-                start = soap_data.find("<StartingIndex>") + len("<StartingIndex>")
-                end = soap_data.find("</StartingIndex>", start)
-                if end > start:
-                    try:
-                        starting_index = int(soap_data[start:end])
-                    except Exception:
-                        starting_index = 0
-            if "<RequestedCount>" in soap_data:
-                start = soap_data.find("<RequestedCount>") + len("<RequestedCount>")
-                end = soap_data.find("</RequestedCount>", start)
-                if end > start:
-                    try:
-                        requested_count = int(soap_data[start:end])
-                    except Exception:
-                        requested_count = None
+            if "<StartingIndex" in soap_data:
+                start_tag_start = soap_data.find("<StartingIndex")
+                if start_tag_start != -1:
+                    start_tag_end = soap_data.find(">", start_tag_start)
+                    if start_tag_end != -1:
+                        end_tag_start = soap_data.find(
+                            "</StartingIndex>", start_tag_end
+                        )
+                        if end_tag_start != -1:
+                            try:
+                                starting_index = int(
+                                    soap_data[start_tag_end + 1 : end_tag_start].strip()
+                                )
+                            except Exception:
+                                starting_index = 0
+            if "<RequestedCount" in soap_data:
+                start_tag_start = soap_data.find("<RequestedCount")
+                if start_tag_start != -1:
+                    start_tag_end = soap_data.find(">", start_tag_start)
+                    if start_tag_end != -1:
+                        end_tag_start = soap_data.find(
+                            "</RequestedCount>", start_tag_end
+                        )
+                        if end_tag_start != -1:
+                            try:
+                                requested_count = int(
+                                    soap_data[start_tag_end + 1 : end_tag_start].strip()
+                                )
+                            except Exception:
+                                requested_count = None
 
             print(f"Browse ObjectID: {object_id}, BrowseFlag: {browse_flag}")
             print(f"StartingIndex: {starting_index}, RequestedCount: {requested_count}")
@@ -1281,10 +1329,14 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             # ObjectID 0 is the root container
             if object_id == "0" and browse_flag == "BrowseDirectChildren":
-                # Root: Show the root folder
+                # Root: Show the main media directory as a container
+                # Count the actual children in the media directory
+                child_count = self._count_dir_children(
+                    self.server_instance.media_directory
+                )
                 didl_items.append(
-                    '<container id="1" parentID="0" restricted="1" searchable="1" childCount="1">\n'
-                    "    <dc:title>Root</dc:title>\n"
+                    f'<container id="1" parentID="0" restricted="1" searchable="1" childCount="{child_count}">\n'
+                    "    <dc:title>Media Library</dc:title>\n"
                     "    <upnp:class>object.container.storageFolder</upnp:class>\n"
                     "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
                     "</container>"
@@ -1299,6 +1351,18 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 )
                 # Get direct children (files and folders) in the root media directory
                 children = []
+
+                # List directory contents for debugging
+                try:
+                    dir_contents = os.listdir(self.server_instance.media_directory)
+                    print(
+                        f"Directory contains {len(dir_contents)} items: {dir_contents[:10]}..."
+                    )  # Show first 10 items
+                except Exception as e:
+                    print(f"Error listing directory: {e}")
+                    total_matches = 0
+                    number_returned = 0
+
                 for item_name in os.listdir(self.server_instance.media_directory):
                     item_path = os.path.join(
                         self.server_instance.media_directory, item_name
@@ -1339,6 +1403,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
                 # Get total number of direct children
                 total_matches = len(children)
+                print(f"Found {total_matches} children in media directory")
+                print(
+                    f"Children: {[child['name'] for child in children[:5]]}..."
+                )  # Show first 5 names
 
                 # Apply pagination
                 if requested_count is not None and requested_count > 0:
@@ -1349,6 +1417,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     children_slice = children[starting_index:]
 
                 number_returned = len(children_slice)
+                print(
+                    f"Returning {number_returned} items (pagination: start={starting_index}, count={requested_count})"
+                )
 
                 # Generate DIDL items for each child
                 for child in children_slice:
@@ -1467,7 +1538,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     # Root container metadata
                     didl_items.append(
                         '<container id="0" parentID="-1" restricted="1" searchable="1" childCount="1">\n'
-                        "    <dc:title>Root</dc:title>\n"
+                        "    <dc:title>Media Library</dc:title>\n"
                         "    <upnp:class>object.container.storageFolder</upnp:class>\n"
                         "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
                         "</container>"
@@ -1481,7 +1552,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     )
                     didl_items.append(
                         '<container id="1" parentID="0" restricted="1" searchable="1" childCount="{child_count}">\n'
-                        "    <dc:title>Media</dc:title>\n"
+                        "    <dc:title>Media Library</dc:title>\n"
                         "    <upnp:class>object.container.storageFolder</upnp:class>\n"
                         "    <upnp:writeStatus>NOT_WRITABLE</upnp:writeStatus>\n"
                         "</container>".format(child_count=child_count)
@@ -1900,9 +1971,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
         file_url = f"http://{self.server_instance.server_ip}:{self.server_instance.port}/media/{encoded_path}"
 
         # Default values
-        dlna_profile = (
-            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"  # Generic
-        )
+        dlna_profile = "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000000"  # Generic
         res_attrs = f'size="{file_size}"'
         dc_date = "2024-01-01T00:00:00"  # Placeholder date
         upnp_class = "object.item.videoItem"  # Default to video
@@ -1999,3 +2068,44 @@ class DLNAHandler(BaseHTTPRequestHandler):
             f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
             f"</item>"
         )
+
+    def handle_subscribe_request(self):
+        """Handle UPnP event subscription requests"""
+        try:
+            print(f"SUBSCRIBE request to {self.path}")
+            print(f"SUBSCRIBE Headers: {dict(self.headers)}")
+
+            # Generate a simple subscription ID
+            import uuid
+
+            sid = str(uuid.uuid4())
+
+            # Basic subscription response
+            self.send_response(200)
+            self.send_header("SID", f"uuid:{sid}")
+            self.send_header("TIMEOUT", "Second-1800")  # 30 minutes
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+            print(f"Sent SUBSCRIBE response with SID: {sid}")
+
+        except Exception as e:
+            print(f"Error handling SUBSCRIBE request: {e}")
+            self.send_error(500, "Internal server error")
+
+    def handle_unsubscribe_request(self):
+        """Handle UPnP event unsubscription requests"""
+        try:
+            print(f"UNSUBSCRIBE request to {self.path}")
+            print(f"UNSUBSCRIBE Headers: {dict(self.headers)}")
+
+            # Basic unsubscription response
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+            print("Sent UNSUBSCRIBE response")
+
+        except Exception as e:
+            print(f"Error handling UNSUBSCRIBE request: {e}")
+            self.send_error(500, "Internal server error")
