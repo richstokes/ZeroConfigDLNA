@@ -1,3 +1,5 @@
+"""Zero Configuration DLNA Server - A simple DLNA media server."""
+
 import hashlib
 import os
 import socket
@@ -18,6 +20,13 @@ from ssdp import SSDPServer
 
 
 class ZeroConfigDLNA:
+    """
+    Zero Configuration DLNA Server class.
+
+    Provides a DLNA/UPnP media server with automatic discovery.
+    Serves media files from a specified directory to DLNA-compatible devices.
+    """
+
     def __init__(self, media_directory=None, port=8200, verbose=False):
         self.name = SERVER_NAME
         self.version = SERVER_VERSION
@@ -63,6 +72,8 @@ class ZeroConfigDLNA:
         server_ref = self
 
         class Handler(DLNAHandler):  # Create a subclass of DLNAHandler
+            """Custom DLNA handler with server instance reference."""
+
             server_instance = server_ref
             verbose = server_ref.verbose
 
@@ -278,6 +289,7 @@ class ZeroConfigDLNA:
 
 
 def main():
+    """Main entry point for the DLNA server application."""
     parser = argparse.ArgumentParser(description=SERVER_DESCRIPTION)
     parser.add_argument(
         "-d",
