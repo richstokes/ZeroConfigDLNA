@@ -786,8 +786,6 @@ class DLNAHandler(BaseHTTPRequestHandler):
         """Serve a media file"""
         try:
             # URL decode the filename
-            from urllib.parse import unquote
-
             decoded_filename = unquote(filename)
             file_path = os.path.join(
                 self.server_instance.media_directory, decoded_filename
