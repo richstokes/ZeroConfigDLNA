@@ -1,0 +1,232 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'packages/**'           # Ignore our own package updates
+      - 'README.md'            # Ignore documentation changes
+      - 'LICENSE'              # Ignore license changes
+      - '*.md'                 # Ignore other markdown files
+  workflow_dispatch:           # Allow manual triggering
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # Job 1: Version Management
+  version-bump:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.new_version }}
+      version-changed: ${{ steps.version.outputs.changed }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Check if version bump needed
+      id: check
+      run: |
+        # Check if this commit already contains a version bump
+        if git log --oneline -1 | grep -q "bump version to"; then
+          echo "Version already bumped in this commit"
+          echo "skip_bump=true" >> $GITHUB_OUTPUT
+        else
+          echo "Version bump needed"
+          echo "skip_bump=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Extract current version and increment patch
+      id: version
+      if: steps.check.outputs.skip_bump == 'false'
+      run: |
+        # Read current version from constants.py
+        current_version=$(grep "SERVER_VERSION = " constants.py | sed 's/SERVER_VERSION = "//' | sed 's/"//')
+        echo "Current version: $current_version"
+        
+        # Split version into parts
+        IFS='.' read -r major minor patch <<< "$current_version"
+        
+        # Increment patch version
+        new_patch=$((patch + 1))
+        new_version="$major.$minor.$new_patch"
+        
+        echo "New version: $new_version"
+        echo "new_version=$new_version" >> $GITHUB_OUTPUT
+        echo "changed=true" >> $GITHUB_OUTPUT
+
+    - name: Update version in constants.py
+      if: steps.check.outputs.skip_bump == 'false'
+      run: |
+        new_version="${{ steps.version.outputs.new_version }}"
+        # Use sed to replace the SERVER_VERSION line
+        sed -i "s/SERVER_VERSION = \".*\"/SERVER_VERSION = \"$new_version\"/" constants.py
+        
+        # Verify the change
+        echo "Updated constants.py:"
+        grep "SERVER_VERSION = " constants.py
+
+    - name: Commit version bump
+      if: steps.check.outputs.skip_bump == 'false'
+      run: |
+        git add constants.py
+        git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+        git push
+
+    - name: Set current version if no bump needed
+      id: current
+      if: steps.check.outputs.skip_bump == 'true'
+      run: |
+        current_version=$(grep "SERVER_VERSION = " constants.py | sed 's/SERVER_VERSION = "//' | sed 's/"//')
+        echo "new_version=$current_version" >> $GITHUB_OUTPUT
+        echo "changed=false" >> $GITHUB_OUTPUT
+
+  # Job 2: Build Windows Executable (depends on version-bump)
+  build-windows-exe:
+    runs-on: windows-latest
+    needs: version-bump
+    if: always() && (needs.version-bump.result == 'success')
+    
+    steps:
+    - name: Checkout code (with latest changes)
+      uses: actions/checkout@v4
+      with:
+        ref: main  # Ensure we get the version-bumped code
+        
+    - name: Pull latest changes
+      run: git pull origin main
+      shell: bash
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Get final version
+      id: version
+      run: |
+        $version = (Get-Content constants.py | Select-String 'SERVER_VERSION = "(.+)"').Matches[0].Groups[1].Value
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+        echo "Building version: $version"
+      shell: powershell
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+
+    - name: Build Windows executable with spec file
+      run: |
+        pyinstaller ZeroConfigDLNA.spec --distpath dist --workpath build
+      shell: cmd
+
+    - name: Rename executable with version
+      run: |
+        move "dist\ZeroConfigDLNA.exe" "dist\ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe"
+      shell: cmd
+
+    - name: List build output
+      run: |
+        dir dist\
+        echo "Build completed successfully"
+      shell: cmd
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: "v${{ steps.version.outputs.version }}"
+        release_name: "ZeroConfigDLNA v${{ steps.version.outputs.version }}"
+        body: |
+          ## ZeroConfigDLNA v${{ steps.version.outputs.version }}
+          
+          Automated build from commit ${{ github.sha }}
+          
+          ### Download
+          - **Windows Executable**: ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe
+          
+          ### Usage
+          Simply download and run the executable. The DLNA server will start automatically.
+          
+          ### Changes
+          Built from latest main branch commit.
+        draft: false
+        prerelease: false
+
+    - name: Upload Windows executable to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe
+        asset_name: ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe
+        asset_content_type: application/octet-stream
+
+    - name: Update packages directory
+      run: |
+        # Create packages directory if it doesn't exist
+        mkdir -p packages
+        
+        # Copy the executable to packages directory
+        cp "./dist/ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe" "./packages/"
+        
+        # Create a latest symlink/copy
+        cp "./dist/ZeroConfigDLNA-${{ steps.version.outputs.version }}.exe" "./packages/ZeroConfigDLNA-latest.exe"
+        
+        echo "Files copied to packages directory"
+        ls -la packages/
+      shell: bash
+
+    - name: Commit packages to repository
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        git add packages/
+        
+        # Only commit if there are changes
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: add Windows executable v${{ steps.version.outputs.version }} [skip ci]"
+          git push
+        fi
+      shell: bash
+
+  # Job 3: Summary/Notification (depends on build completion)
+  pipeline-summary:
+    runs-on: ubuntu-latest
+    needs: [version-bump, build-windows-exe]
+    if: always()
+    
+    steps:
+    - name: Pipeline Summary
+      run: |
+        echo "## 🚀 CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version Bump:** ${{ needs.version-bump.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Windows Build:** ${{ needs.build-windows-exe.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.version-bump.outputs.version }}" != "" ]; then
+          echo "**Final Version:** v${{ needs.version-bump.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.build-windows-exe.result }}" == "success" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Release Created:** [v${{ needs.version-bump.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version-bump.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Executable:** ZeroConfigDLNA-${{ needs.version-bump.outputs.version }}.exe" >> $GITHUB_STEP_SUMMARY
+        fi
