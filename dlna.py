@@ -49,10 +49,13 @@ def is_safe_path(base_dir, requested_path):
 
 
 class DLNAHandler(BaseHTTPRequestHandler):
-    def __init__(self, server_instance, *args, **kwargs):
-        self.server_instance = server_instance
+    def __init__(self, *args, **kwargs):
+        # These will be set as class attributes by the server
+        # self.server_instance and self.verbose should be available
+        if hasattr(self, "verbose") and self.verbose:
+            print("Verbose logging enabled")
         # Set default timeout for socket operations
-        self.timeout = 60  # 60 seconds timeout
+        self.timeout = 300
         super().__init__(*args, **kwargs)
 
     def do_GET(self):
@@ -61,8 +64,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
             parsed_path = urlparse(self.path)
             path = unquote(parsed_path.path)
 
-            print(f"GET request: {self.path} -> {path}")
-            print(f"Headers: {dict(self.headers)}")
+            if self.verbose:
+                print(f"GET request: {self.path} -> {path}")
+                print(f"Headers: {dict(self.headers)}")
 
             if path == "/description.xml":
                 self.send_device_description()
@@ -73,10 +77,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
             elif path == "/browse":
                 self.send_browse_response()
             elif path.startswith("/media/"):
-                print(f"Media request: {path[7:]}")
-                print(f"Client: {self.client_address}")
-                print(f"User-Agent: {self.headers.get('User-Agent', 'Unknown')}")
-                print(f"Range: {self.headers.get('Range', 'None')}")
+                if self.verbose:
+                    print(f"Media request: {path[7:]}")
+                    print(f"Client: {self.client_address}")
+                    print(f"User-Agent: {self.headers.get('User-Agent', 'Unknown')}")
+                    print(f"Range: {self.headers.get('Range', 'None')}")
                 self.serve_media_file(path[7:])  # Remove '/media/' prefix
             else:
                 self.send_error(404, "File not found")
@@ -101,8 +106,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
             parsed_path = urlparse(self.path)
             path = unquote(parsed_path.path)
 
-            print(f"HEAD request: {self.path} -> {path}")
-            print(f"Headers: {dict(self.headers)}")
+            if self.verbose:
+                print(f"HEAD request: {self.path} -> {path}")
+                print(f"Headers: {dict(self.headers)}")
 
             if path.startswith("/media/"):
                 self.serve_media_file(
@@ -128,9 +134,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         """Handle SOAP requests for DLNA control"""
         try:
-            print(f"POST request: {self.path}")
-            print(f"POST Headers: {dict(self.headers)}")
-            print(f"Client: {self.client_address}")
+            if self.verbose:
+                print(f"POST request: {self.path}")
+                print(f"POST Headers: {dict(self.headers)}")
+                print(f"Client: {self.client_address}")
 
             if self.path == "/control":
                 content_length = int(self.headers.get("Content-Length", 0))
@@ -768,8 +775,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             # Log DLNA client info
             client_addr = self.client_address
-            print(f"MEDIA ACCESS: {self.path} from {client_addr}")
-            print(f"MEDIA HEADERS: {dict(self.headers)}")
+            if self.verbose:
+                print(f"MEDIA ACCESS: {self.path} from {client_addr}")
+                print(f"MEDIA HEADERS: {dict(self.headers)}")
 
             # Handle range requests for video streaming
             range_header = self.headers.get("Range")
@@ -780,9 +788,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     )
                 except (BrokenPipeError, ConnectionResetError):
                     # Client disconnected, log and return without further error handling
-                    print(
-                        f"Client disconnected during range request for {decoded_filename}"
-                    )
+                    if self.verbose:
+                        print(
+                            f"Client disconnected during range request for {decoded_filename}"
+                        )
                     return
             else:
                 self.send_response(200)
@@ -848,9 +857,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
                                 self.wfile.flush()
                     except (BrokenPipeError, ConnectionResetError):
                         # Client disconnected, log and exit gracefully
-                        print(
-                            f"Client disconnected during streaming of {decoded_filename}"
-                        )
+                        # This happens a lot due to how DLNA clients handle streaming
+                        if self.verbose:
+                            print(
+                                f"Client disconnected during streaming of {decoded_filename}"
+                            )
                         return
 
         except (BrokenPipeError, ConnectionResetError):
@@ -936,15 +947,18 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         remaining -= len(chunk)
                     except BrokenPipeError:
                         # Client disconnected, log it and exit gracefully
-                        print(
-                            f"Client disconnected during streaming of {os.path.basename(file_path)}"
-                        )
+                        # This happens a lot due to how DLNA clients handle streaming
+                        if self.verbose:
+                            print(
+                                f"Client disconnected during streaming of {os.path.basename(file_path)}"
+                            )
                         return
                     except ConnectionResetError:
                         # Connection reset by client
-                        print(
-                            f"Connection reset during streaming of {os.path.basename(file_path)}"
-                        )
+                        if self.verbose:
+                            print(
+                                f"Connection reset during streaming of {os.path.basename(file_path)}"
+                            )
                         return
 
         except BrokenPipeError:
@@ -969,9 +983,12 @@ class DLNAHandler(BaseHTTPRequestHandler):
         """Handle SOAP requests for DLNA control"""
         try:
             soap_data = post_data.decode("utf-8")
-            print(f"SOAP Action: {soap_action}")
-            print(f"SOAP Data: {soap_data[:500]}...")  # First 500 chars for debugging
-            print(f"SOAP Headers: {self.headers}")
+            if self.verbose:
+                print(f"SOAP Action: {soap_action}")
+                print(
+                    f"SOAP Data: {soap_data[:500]}..."
+                )  # First 500 chars for debugging
+                print(f"SOAP Headers: {self.headers}")
 
             # Determine which service is being addressed
             if "ContentDirectory" in soap_action:
@@ -1203,7 +1220,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def handle_get_system_update_id(self):
         """Handle ContentDirectory GetSystemUpdateID requests"""
         try:
-            print("Handling GetSystemUpdateID request")
+            if self.verbose:
+                print("Handling GetSystemUpdateID request")
 
             # Generate a dynamic system update ID based on directory content to force cache refresh
             import hashlib
@@ -1239,7 +1257,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def handle_browse_request(self, soap_data):
         """Handle ContentDirectory Browse requests"""
         try:
-            print(f"Browse request: {soap_data}")
+            if self.verbose:
+                print(f"Browse request: {soap_data}")
 
             # Parse SOAP parameters using simple string parsing
             object_id = "0"  # Default to root
@@ -1309,8 +1328,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
                             except Exception:
                                 requested_count = None
 
-            print(f"Browse ObjectID: {object_id}, BrowseFlag: {browse_flag}")
-            print(f"StartingIndex: {starting_index}, RequestedCount: {requested_count}")
+            if self.verbose:
+                print(f"Browse ObjectID: {object_id}, BrowseFlag: {browse_flag}")
+                print(
+                    f"StartingIndex: {starting_index}, RequestedCount: {requested_count}"
+                )
 
             # Setup the directory structure mapping
             if not hasattr(self, "directory_mapping"):
@@ -1338,18 +1360,20 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             # ObjectID 1 is the main media directory
             elif object_id == "1" and browse_flag == "BrowseDirectChildren":
-                print(
-                    f"Browsing main media directory: {self.server_instance.media_directory}"
-                )
+                if self.verbose:
+                    print(
+                        f"Browsing main media directory: {self.server_instance.media_directory}"
+                    )
                 # Get direct children (files and folders) in the root media directory
                 children = []
 
                 # List directory contents for debugging
                 try:
                     dir_contents = os.listdir(self.server_instance.media_directory)
-                    print(
-                        f"Directory contains {len(dir_contents)} items: {dir_contents[:10]}..."
-                    )  # Show first 10 items
+                    if self.verbose:
+                        print(
+                            f"Directory contains {len(dir_contents)} items: {dir_contents[:10]}..."
+                        )  # Show first 10 items
                 except Exception as e:
                     print(f"Error listing directory: {e}")
                     total_matches = 0
@@ -1395,10 +1419,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
                 # Get total number of direct children
                 total_matches = len(children)
-                print(f"Found {total_matches} children in media directory")
-                print(
-                    f"Children: {[child['name'] for child in children[:5]]}..."
-                )  # Show first 5 names
+                if self.verbose:
+                    print(f"Found {total_matches} children in media directory")
+                    print(
+                        f"Children: {[child['name'] for child in children[:5]]}..."
+                    )  # Show first 5 names
 
                 # Apply pagination
                 if requested_count is not None and requested_count > 0:
@@ -1409,9 +1434,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     children_slice = children[starting_index:]
 
                 number_returned = len(children_slice)
-                print(
-                    f"Returning {number_returned} items (pagination: start={starting_index}, count={requested_count})"
-                )
+                if self.verbose:
+                    print(
+                        f"Returning {number_returned} items (pagination: start={starting_index}, count={requested_count})"
+                    )
 
                 # Generate DIDL items for each child
                 for child in children_slice:
@@ -1431,7 +1457,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             # Handle browsing of subdirectories or specific directory
             elif browse_flag == "BrowseDirectChildren" and object_id not in ["0", "1"]:
-                print(f"Browsing directory with ID: {object_id}")
+                if self.verbose:
+                    print(f"Browsing directory with ID: {object_id}")
                 # Get the path for this directory ID
                 dir_path = self._get_path_for_id(object_id)
 
@@ -1524,7 +1551,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             # Handle metadata requests for an item
             elif browse_flag == "BrowseMetadata":
-                print(f"Browsing metadata for item with ID: {object_id}")
+                if self.verbose:
+                    print(f"Browsing metadata for item with ID: {object_id}")
 
                 if object_id == "0":
                     # Root container metadata
@@ -1621,7 +1649,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 + "\n</DIDL-Lite>"
             )
 
-            print(f"Result: {number_returned} items of {total_matches} total")
+            if self.verbose:
+                print(f"Result: {number_returned} items of {total_matches} total")
 
             # Create SOAP response
             response = f"""<?xml version="1.0" encoding="utf-8"?>
@@ -2064,8 +2093,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def handle_subscribe_request(self):
         """Handle UPnP event subscription requests"""
         try:
-            print(f"SUBSCRIBE request to {self.path}")
-            print(f"SUBSCRIBE Headers: {dict(self.headers)}")
+            if self.verbose:
+                print(f"SUBSCRIBE request to {self.path}")
+                print(f"SUBSCRIBE Headers: {dict(self.headers)}")
 
             # Generate a simple subscription ID
             import uuid
@@ -2088,8 +2118,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
     def handle_unsubscribe_request(self):
         """Handle UPnP event unsubscription requests"""
         try:
-            print(f"UNSUBSCRIBE request to {self.path}")
-            print(f"UNSUBSCRIBE Headers: {dict(self.headers)}")
+            if self.verbose:
+                print(f"UNSUBSCRIBE request to {self.path}")
+                print(f"UNSUBSCRIBE Headers: {dict(self.headers)}")
 
             # Basic unsubscription response
             self.send_response(200)

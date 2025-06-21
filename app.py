@@ -1,8 +1,9 @@
+import hashlib
 import os
 import socket
 import threading
 import time
-from http.server import HTTPServer, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 import mimetypes
 import argparse
 
@@ -17,7 +18,7 @@ from ssdp import SSDPServer
 
 
 class ZeroConfigDLNA:
-    def __init__(self, media_directory=None, port=8200):
+    def __init__(self, media_directory=None, port=8200, verbose=False):
         self.name = SERVER_NAME
         self.version = SERVER_VERSION
         self.author = SERVER_MANUFACTURER
@@ -26,14 +27,13 @@ class ZeroConfigDLNA:
         self.port = port
         self.server = None
         self.server_thread = None
+        self.verbose = verbose
         socket.setdefaulttimeout(60)  # 60 seconds timeout
         # Generate UUID based on media directory to force cache refresh when directory changes
-        import hashlib
-
         path_hash = hashlib.md5(
             os.path.abspath(self.media_directory).encode()
         ).hexdigest()
-        self.device_uuid = f"65da942e-1984-4309-1234-{path_hash[:12]}"  # You may need to change this / make fully random if your TV is caching excessively
+        self.device_uuid = f"65da942e-1984-3309-1234-{path_hash[:12]}"  # You may need to change this / make fully random if your TV is caching excessively
         self.server_ip = self.get_local_ip()
         self.running = False
         self.ssdp_server = SSDPServer(self)
@@ -50,11 +50,13 @@ class ZeroConfigDLNA:
 
     def create_handler(self):
         """Create a handler class with server instance"""
+        server_ref = self
 
-        def handler(*args, **kwargs):
-            return DLNAHandler(self, *args, **kwargs)
+        class Handler(DLNAHandler):  # Create a subclass of DLNAHandler
+            server_instance = server_ref
+            verbose = server_ref.verbose
 
-        return handler
+        return Handler
 
     def start(self):
         """Start the DLNA server"""
@@ -170,10 +172,18 @@ def main():
         default=8200,
         help="Port to run server on (default: 8200)",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output",
+    )
 
     args = parser.parse_args()
 
-    server = ZeroConfigDLNA(media_directory=args.directory, port=args.port)
+    server = ZeroConfigDLNA(
+        media_directory=args.directory, port=args.port, verbose=args.verbose
+    )
     server.run()
 
 

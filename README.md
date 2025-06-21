@@ -49,7 +49,7 @@ Tested and known working on:
 - VLC Media Player (including iPhone/iPad)  
 
 
-Feel free to open an issue with the log output if you run into problems and I'll see if I can fix it.
+Feel free to open an issue with the log output if you run into problems and I'll see if I can fix it. Use the `-v` flag to turn on verbose logging.  
 
 ## How It Works
 
