@@ -58,6 +58,13 @@ class DLNAHandler(BaseHTTPRequestHandler):
         self.timeout = 300
         super().__init__(*args, **kwargs)
 
+    def log_message(self, format, *args):
+        """Override BaseHTTPRequestHandler's log_message to only log when verbose mode is enabled"""
+        if hasattr(self, "verbose") and self.verbose:
+            # Use the default logging behavior from BaseHTTPRequestHandler
+            super().log_message(format, *args)
+        # If verbose is False or not set, don't log anything
+
     def do_GET(self):
         """Handle GET requests for media files and DLNA control"""
         try:
