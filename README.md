@@ -42,6 +42,12 @@ By contrast, `ZeroConfigDLNA` has nothing to configure. You simply run it and it
 
 ## Compatibility
 
+Tested and known working on:  
+- Sony Bravia Smart TV
+- Samsung Smart TV
+- Xbox Media Player
+- VLC Media Player (including iPhone/iPad)
+
 So far I've tested this on my Sony and Samsung TV's. It works great on both! As does streaming to my phone/iPad (using VLC).
 
 Feel free to open an issue with the log output if you run into problems and I'll see if I can fix it.
