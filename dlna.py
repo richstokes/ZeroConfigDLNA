@@ -11,7 +11,6 @@ import subprocess
 import uuid
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import unquote, urlparse, quote
-import mimetypes
 import html
 import traceback
 from constants import (
@@ -22,6 +21,10 @@ from constants import (
     SERVER_MANUFACTURER,
     is_supported_media_file,
 )
+from custom_mimetypes import CustomMimeTypes
+
+# Create a global instance of CustomMimeTypes
+custom_mimetypes = CustomMimeTypes()
 
 
 def is_safe_path(base_dir, requested_path):
@@ -668,7 +671,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         {"name": item_name, "path": relative_path, "is_dir": True}
                     )
                 elif os.path.isfile(item_path):
-                    mime_type, _ = mimetypes.guess_type(item_name)
+                    mime_type, _ = custom_mimetypes.guess_type(item_name)
                     if mime_type and (
                         mime_type.startswith("video/")
                         or mime_type.startswith("audio/")
@@ -805,7 +808,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print(f"SECURITY WARNING: Attempted directory traversal to {file_path}")
                 return
 
-            mime_type, _ = mimetypes.guess_type(file_path)
+            mime_type, _ = custom_mimetypes.guess_type(file_path)
             if not mime_type:
                 mime_type = "application/octet-stream"
 
@@ -1606,7 +1609,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                             }
                         )
                     elif os.path.isfile(item_path):
-                        mime_type, _ = mimetypes.guess_type(item_name)
+                        mime_type, _ = custom_mimetypes.guess_type(item_name)
                         if mime_type and (
                             mime_type.startswith("video/")
                             or mime_type.startswith("audio/")
@@ -1697,7 +1700,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                                     }
                                 )
                             elif os.path.isfile(item_path):
-                                mime_type, _ = mimetypes.guess_type(item_name)
+                                mime_type, _ = custom_mimetypes.guess_type(item_name)
                                 if mime_type and (
                                     mime_type.startswith("video/")
                                     or mime_type.startswith("audio/")
@@ -1814,7 +1817,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                         elif os.path.isfile(full_path):
                             # File metadata
                             file_name = os.path.basename(item_path)
-                            mime_type, _ = mimetypes.guess_type(file_name)
+                            mime_type, _ = custom_mimetypes.guess_type(file_name)
 
                             if mime_type and (
                                 mime_type.startswith("video/")
