@@ -60,6 +60,3 @@ Tested and known working on:
 
 Feel free to open an issue with the log output if you run into problems and I'll see if I can fix it. Use the `-v` flag to turn on verbose logging.  
 
-## How It Works
-
-Curious about the technical details? Check out the [How It Works](how_it_works.md) documentation for a deep dive into DLNA, SSDP, and how this server is implemented.
