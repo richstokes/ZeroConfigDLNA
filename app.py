@@ -27,8 +27,8 @@ class ZeroConfigDLNA:
     Serves media files from a specified directory to DLNA-compatible devices.
     """
 
-    def __init__(self, media_directory=None, port=8200, verbose=False):
-        self.name = SERVER_NAME
+    def __init__(self, media_directory=None, port=8200, verbose=False, name=None):
+        self.name = name if name else SERVER_NAME
         self.version = SERVER_VERSION
         self.author = SERVER_MANUFACTURER
         self.description = SERVER_DESCRIPTION
@@ -305,11 +305,20 @@ def main():
         action="store_true",
         help="Enable verbose output",
     )
+    parser.add_argument(
+        "-n",
+        "--name",
+        default=None,
+        help="Set the DLNA server name (default: ZeroConfigDLNA_<hostname> or value from DLNA_HOSTNAME)",
+    )
 
     args = parser.parse_args()
 
     server = ZeroConfigDLNA(
-        media_directory=args.directory, port=args.port, verbose=args.verbose
+        media_directory=args.directory,
+        port=args.port,
+        verbose=args.verbose,
+        name=args.name,
     )
     server.run()
 
