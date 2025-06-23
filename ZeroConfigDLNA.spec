@@ -10,6 +10,8 @@ a = Analysis(
         ('constants.py', '.'),
         ('dlna.py', '.'),
         ('ssdp.py', '.'),
+        ('mime.types', '.'),
+        ('custom_mimetypes.py', '.'),
     ],
     hiddenimports=[],
     hookspath=[],
