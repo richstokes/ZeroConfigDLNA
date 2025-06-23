@@ -27,8 +27,10 @@ class ZeroConfigDLNA:
     Serves media files from a specified directory to DLNA-compatible devices.
     """
 
-    def __init__(self, media_directory=None, port=8200, verbose=False, name=None):
-        self.name = name if name else SERVER_NAME
+    def __init__(
+        self, media_directory=None, port=8200, verbose=False, server_name=None
+    ):
+        self.server_name = server_name
         self.version = SERVER_VERSION
         self.author = SERVER_MANUFACTURER
         self.description = SERVER_DESCRIPTION
@@ -76,13 +78,14 @@ class ZeroConfigDLNA:
 
             server_instance = server_ref
             verbose = server_ref.verbose
+            server_name = self.server_name
 
         return Handler
 
     def start(self):
         """Start the DLNA server"""
         try:
-            print(f"{self.name} v{self.version} is starting...")
+            print(f"{self.server_name} v{self.version} is starting...")
             print(f"Media directory: {os.path.abspath(self.media_directory)}")
             print(f"Server IP: {self.server_ip}")
             print(f"Port: {self.port}")
@@ -150,7 +153,7 @@ class ZeroConfigDLNA:
 
     def stop(self):
         """Stop the DLNA server"""
-        print(f"{self.name} is stopping...")
+        print(f"{self.server_name} is stopping...")
         self.running = False
         if self.server:
             self.server.shutdown()
@@ -307,9 +310,9 @@ def main():
     )
     parser.add_argument(
         "-n",
-        "--name",
-        default=None,
-        help="Set the DLNA server name (default: ZeroConfigDLNA_<hostname> or value from DLNA_HOSTNAME)",
+        "--server_name",
+        default=SERVER_NAME,
+        help="Set the DLNA server name (default: ZeroConfigDLNA_<hostname> or value from DLNA_HOSTNAME env var)",
     )
 
     args = parser.parse_args()
@@ -318,7 +321,7 @@ def main():
         media_directory=args.directory,
         port=args.port,
         verbose=args.verbose,
-        name=args.name,
+        server_name=args.server_name,
     )
     server.run()
 

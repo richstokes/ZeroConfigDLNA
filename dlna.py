@@ -15,7 +15,6 @@ import html
 import traceback
 from constants import (
     SERVER_AGENT,
-    SERVER_NAME,
     SERVER_DESCRIPTION,
     SERVER_VERSION,
     SERVER_MANUFACTURER,
@@ -73,6 +72,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
     # These are set dynamically in app.py when creating the Handler subclass
     server_instance = None  # Reference to the ZeroConfigDLNA server instance
     verbose = False  # Verbose logging flag
+    server_name = None  # Server name, set by the server instance
 
     def __init__(self, *args, **kwargs):
         # Set default timeout for socket operations (5 minutes)
@@ -289,11 +289,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
     </specVersion>
     <device>
         <deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>
-        <friendlyName>{SERVER_NAME}</friendlyName>
+        <friendlyName>{self.server_name}</friendlyName>
         <manufacturer>{SERVER_MANUFACTURER}</manufacturer>
         <manufacturerURL>https://github.com/richstokes/ZeroConfigDLNA</manufacturerURL>
         <modelDescription>DLNA/UPnP Media Server</modelDescription>
-        <modelName>{SERVER_NAME}</modelName>
+        <modelName>{self.server_name}</modelName>
         <modelNumber>{SERVER_VERSION}</modelNumber>
         <modelURL>https://github.com/richstokes/ZeroConfigDLNA</modelURL>
         <serialNumber>12345678</serialNumber>
