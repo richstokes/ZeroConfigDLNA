@@ -57,6 +57,21 @@ class ZeroConfigDLNA:
         )  # Start with timestamp-based ID
         self.ssdp_server = SSDPServer(self, verbose=self.verbose)
 
+    def find_a_port(self):
+        """Find an available port starting from the specified port"""
+        test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        port = self.port
+        while True:
+            try:
+                test_socket.bind((self.server_ip, port))
+                test_socket.close()
+                return port
+            except OSError:
+                if self.verbose:
+                    print(f"Port {port} is in use, trying next port...")
+                port += 1
+
     def get_local_ip(self):
         """Get the local IP address"""
         try:
@@ -88,7 +103,6 @@ class ZeroConfigDLNA:
             print(f"{self.server_name} v{self.version} is starting...")
             print(f"Media directory: {os.path.abspath(self.media_directory)}")
             print(f"Server IP: {self.server_ip}")
-            print(f"Port: {self.port}")
 
             if not os.path.exists(self.media_directory):
                 print(
@@ -96,16 +110,9 @@ class ZeroConfigDLNA:
                 )
                 return False
 
-            # Check if port is available
-            try:
-                test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                test_socket.bind((self.server_ip, self.port))
-                test_socket.close()
-            except OSError:
-                print(
-                    f"Error: Port {self.port} is already in use. Try a different port with -p option."
-                )
-                return False
+            # Find an available port starting from the specified port
+            self.port = self.find_a_port()
+            print(f"Port: {self.port}")
 
             # Count media files
             media_count = 0
