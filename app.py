@@ -1,5 +1,6 @@
 """Zero Configuration DLNA Server - A simple DLNA media server."""
-
+import multiprocessing
+multiprocessing.set_start_method("fork")
 import hashlib
 import os
 import socket
