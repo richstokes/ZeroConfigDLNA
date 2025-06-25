@@ -11,9 +11,14 @@ import threading
 import time
 import struct
 import select
-from constants import (
-    SERVER_AGENT,
-)
+try:
+    from .constants import (
+        SERVER_AGENT,
+    )
+except ImportError:
+    from constants import (
+        SERVER_AGENT,
+    )
 
 
 class SSDPServer:

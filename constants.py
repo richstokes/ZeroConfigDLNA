@@ -6,7 +6,10 @@ hostname handling, and version details for the DLNA server.
 
 import os
 import socket
-from custom_mimetypes import CustomMimeTypes
+try:
+    from .custom_mimetypes import CustomMimeTypes
+except ImportError:
+    from custom_mimetypes import CustomMimeTypes
 
 # Get hostname, truncate at first dot, then limit to 16 chars max
 hostname = socket.gethostname().split(".")[0][:16]

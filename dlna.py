@@ -4,23 +4,33 @@ DLNA media server handler module.
 This module provides the HTTP request handler for a DLNA media server,
 implementing the necessary DLNA and UPnP protocols for media streaming.
 """
-
+import html
+import traceback
 import os
 import struct
 import subprocess
 import uuid
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import unquote, urlparse, quote
-import html
-import traceback
-from constants import (
-    SERVER_AGENT,
-    SERVER_DESCRIPTION,
-    SERVER_VERSION,
-    SERVER_MANUFACTURER,
-    is_supported_media_file,
-)
-from custom_mimetypes import CustomMimeTypes
+
+try:
+    from .constants import (
+        SERVER_AGENT,
+        SERVER_DESCRIPTION,
+        SERVER_VERSION,
+        SERVER_MANUFACTURER,
+        is_supported_media_file,
+    )
+    from .custom_mimetypes import CustomMimeTypes
+except ImportError:
+    from constants import (
+        SERVER_AGENT,
+        SERVER_DESCRIPTION,
+        SERVER_VERSION,
+        SERVER_MANUFACTURER,
+        is_supported_media_file,
+    )
+    from custom_mimetypes import CustomMimeTypes
 
 # Create a global instance of CustomMimeTypes
 custom_mimetypes = CustomMimeTypes()

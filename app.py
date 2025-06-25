@@ -1,6 +1,4 @@
 """Zero Configuration DLNA Server - A simple DLNA media server."""
-import multiprocessing
-multiprocessing.set_start_method("fork")
 import hashlib
 import os
 import socket
@@ -9,15 +7,26 @@ import time
 from http.server import ThreadingHTTPServer
 import argparse
 
-from constants import (
-    SERVER_NAME,
-    SERVER_DESCRIPTION,
-    SERVER_VERSION,
-    SERVER_MANUFACTURER,
-    is_supported_media_file,
-)
-from dlna import DLNAHandler
-from ssdp import SSDPServer
+try: # Hacky but needed to support both package and module imports
+    from .constants import (
+        SERVER_NAME,
+        SERVER_DESCRIPTION,
+        SERVER_VERSION,
+        SERVER_MANUFACTURER,
+        is_supported_media_file,
+    )
+    from .dlna import DLNAHandler
+    from .ssdp import SSDPServer
+except ImportError:
+    from constants import (
+        SERVER_NAME,
+        SERVER_DESCRIPTION,
+        SERVER_VERSION,
+        SERVER_MANUFACTURER,
+        is_supported_media_file,
+    )
+    from dlna import DLNAHandler
+    from ssdp import SSDPServer
 
 
 class ZeroConfigDLNA:
