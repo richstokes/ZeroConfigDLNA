@@ -83,6 +83,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
     server_instance = None  # Reference to the ZeroConfigDLNA server instance
     verbose = False  # Verbose logging flag
     server_name = None  # Server name, set by the server instance
+    fast = False  # Fast mode flag to disable subprocess calls
 
     def __init__(self, *args, **kwargs):
         # Set default timeout for socket operations (5 minutes)
@@ -100,6 +101,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
             # Client disconnected during initialization - this is common with DLNA clients
             # Just log it and return gracefully
             print(f"Client disconnected during handler initialization: {e}")
+
+        if self.fast:
+            print("Fast mode enabled - subprocess calls will be disabled")
 
     def setup(self):
         """Set up the connection with timeout"""
@@ -2030,8 +2034,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 "audio/aiff": "00:05:00",
             }
 
-            # Try to get duration using ffprobe if available
-            if mime_type and (
+            # Try to get duration using ffprobe if available (skip if fast mode is enabled)
+            if not self.fast and mime_type and (
                 mime_type.startswith("video/") or mime_type.startswith("audio/")
             ):
                 try:
@@ -2086,17 +2090,17 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 ):
                     pass
 
-                # Try basic MP4 parsing for MP4 files
-                if mime_type == "video/mp4":
-                    mp4_duration = self._parse_mp4_duration(file_path)
-                    if mp4_duration:
-                        return mp4_duration
+            # Try basic MP4 parsing for MP4 files (works even in fast mode)
+            if mime_type == "video/mp4":
+                mp4_duration = self._parse_mp4_duration(file_path)
+                if mp4_duration:
+                    return mp4_duration
 
-                # Try basic AVI parsing for AVI files
-                if mime_type == "video/x-msvideo":
-                    avi_duration = self._parse_avi_duration(file_path)
-                    if avi_duration:
-                        return avi_duration
+            # Try basic AVI parsing for AVI files (works even in fast mode)
+            if mime_type == "video/x-msvideo":
+                avi_duration = self._parse_avi_duration(file_path)
+                if avi_duration:
+                    return avi_duration
 
             # Return default duration for the mime type
             return default_durations.get(mime_type, "01:00:00")

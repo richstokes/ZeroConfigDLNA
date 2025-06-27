@@ -38,7 +38,7 @@ class ZeroConfigDLNA:
     """
 
     def __init__(
-        self, media_directory=None, port=8200, verbose=False, server_name=None
+        self, media_directory=None, port=8200, verbose=False, server_name=None, fast=False
     ):
         self.server_name = server_name
         self.version = SERVER_VERSION
@@ -49,6 +49,7 @@ class ZeroConfigDLNA:
         self.server = None
         self.server_thread = None
         self.verbose = verbose
+        self.fast = fast
         socket.setdefaulttimeout(60)  # 60 seconds timeout
 
         # Generate UUID based on directory content hash
@@ -104,6 +105,7 @@ class ZeroConfigDLNA:
             server_instance = server_ref
             verbose = server_ref.verbose
             server_name = self.server_name
+            fast = server_ref.fast
 
         return Handler
 
@@ -331,6 +333,12 @@ def main():
         default=SERVER_NAME,
         help="Set the DLNA server name (default: ZeroConfigDLNA_<hostname> or value from DLNA_HOSTNAME env var)",
     )
+    parser.add_argument(
+        "-f",
+        "--fast",
+        action="store_true",
+        help="Disable ffprobe and mediainfo subprocess calls for faster operation and wider compatibility",
+    )
 
     args = parser.parse_args()
 
@@ -339,6 +347,7 @@ def main():
         port=args.port,
         verbose=args.verbose,
         server_name=args.server_name,
+        fast=args.fast,
     )
     server.run()
 
