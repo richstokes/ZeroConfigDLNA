@@ -105,6 +105,12 @@ class DLNAHandler(BaseHTTPRequestHandler):
         if self.fast:
             print("Fast mode enabled - subprocess calls will be disabled")
 
+        self.now_playing = "None"
+
+    def get_now_playing(self):
+        """Get the currently playing media file."""
+        return self.now_playing
+
     def setup(self):
         """Set up the connection with timeout"""
         super().setup()
@@ -837,6 +843,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
             if self.verbose:
                 print(f"MEDIA ACCESS: {self.path} from {client_addr}")
                 print(f"MEDIA HEADERS: {dict(self.headers)}")
+            
+            # Set the current playing file for DLNA clients
+            # Get filename after the last slash for display
+            self.now_playing = os.path.basename(decoded_filename)
+            print(f"NOW PLAYING: {self.now_playing}")
 
             # Handle range requests for video streaming
             range_header = self.headers.get("Range")
