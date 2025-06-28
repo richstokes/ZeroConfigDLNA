@@ -6,12 +6,18 @@ Share media from your computer to your TV (or any other UPnP device!) with a sin
 
 &nbsp;
 
+## Quick Start - MacOS
+Mac users can download `Easy Media Server` from the App Store, [here](https://apps.apple.com/us/app/easy-media-server/id6747689205). Easy Media Server is the graphical interface, which uses this repo as it's backend.  
+
+&nbsp; 
+
 ## Quick Start - Windows
 Windows users can [download the latest release here](https://github.com/richstokes/ZeroConfigDLNA/releases). Copy the .exe to the directory you wish to serve files from and double click to launch (you may need to accept the generic Windows security warning).
 
 &nbsp;
 
-## Quick Start - Mac & Linux
+
+## Run via Python (Mac, Linux, Windows)
 
 1. Clone or download this repository.
 2. Run the application:
