@@ -68,6 +68,47 @@ class ZeroConfigDLNA:
         )  # Start with timestamp-based ID
         self.ssdp_server = SSDPServer(self, verbose=self.verbose)
 
+        self.now_playing = None  # Track currently playing media
+        self.now_playing_timestamp = None  # Track when media was last accessed
+    
+    def get_now_playing(self):
+        """Get the currently playing media file from the server."""
+        import time
+        if self.now_playing:
+            time_since_access = None
+            if self.now_playing_timestamp:
+                time_since_access = time.time() - self.now_playing_timestamp
+            return {
+                "filename": self.now_playing,
+                "status": "playing",
+                "server_running": self.running,
+                "last_accessed": self.now_playing_timestamp,
+                "seconds_since_access": time_since_access
+            }
+        else:
+            return {
+                "filename": None,
+                "status": "no media playing",
+                "server_running": self.running,
+                "last_accessed": None,
+                "seconds_since_access": None
+            }
+
+    def set_now_playing(self, filename):
+        """Set the currently playing media file."""
+        import time
+        self.now_playing = filename
+        self.now_playing_timestamp = time.time()
+        if self.verbose:
+            print(f"Server now playing: {filename}")
+
+    def clear_now_playing(self):
+        """Clear the currently playing media status."""
+        if self.verbose and self.now_playing:
+            print(f"Clearing now playing: {self.now_playing}")
+        self.now_playing = None
+        self.now_playing_timestamp = None
+
     def find_a_port(self):
         """Find an available port starting from the specified port"""
         test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -304,6 +345,27 @@ class ZeroConfigDLNA:
 
         return False
 
+    def get_media_info(self, filename=None):
+        """Get detailed information about currently playing or specified media."""
+        target_file = filename or self.now_playing
+        if not target_file:
+            return None
+            
+        file_path = os.path.join(self.media_directory, target_file)
+        if not os.path.exists(file_path):
+            return None
+            
+        try:
+            stat_info = os.stat(file_path)
+            return {
+                "filename": target_file,
+                "full_path": file_path,
+                "size": stat_info.st_size,
+                "modified": stat_info.st_mtime,
+                "is_supported": is_supported_media_file(file_path)
+            }
+        except OSError:
+            return None
 
 def main():
     """Main entry point for the DLNA server application."""

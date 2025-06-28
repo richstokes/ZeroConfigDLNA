@@ -847,6 +847,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
             # Set the current playing file for DLNA clients
             # Get filename after the last slash for display
             self.now_playing = os.path.basename(decoded_filename)
+            # Also update the server instance's now_playing for external access
+            if self.server_instance:
+                self.server_instance.set_now_playing(self.now_playing)
             print(f"NOW PLAYING: {self.now_playing}")
 
             # Handle range requests for video streaming
