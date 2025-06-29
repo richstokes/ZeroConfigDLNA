@@ -304,6 +304,6 @@ class SSDPServer:
     def _periodic_notify(self):
         """Send periodic NOTIFY alive messages"""
         while self.running:
-            time.sleep(1800)  # Send every 30 minutes (1800 seconds)
+            time.sleep(300)  # Send every 5 minutes (300 seconds)
             if self.running:
                 self._send_notify_alive()
