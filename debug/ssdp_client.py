@@ -52,7 +52,7 @@ class SSDPClient:
                 if any(header in line for header in HEADERS_TO_IGNORE):
                     continue
                 print(line)
-            print("----------------------------------------\n")
+            print("----------------------------------------")
         except UnicodeDecodeError:
             print(f"\nReceived SSDP packet from {addr[0]}:{addr[1]} (unable to decode):")
             print(data)
