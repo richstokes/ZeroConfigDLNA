@@ -186,7 +186,7 @@ class SSDPServer:
             (
                 "NOTIFY * HTTP/1.1\r\n"
                 f"HOST: {self.MULTICAST_IP}:{self.MULTICAST_PORT}\r\n"
-                "CACHE-CONTROL: max-age=1800\r\n"
+                "CACHE-CONTROL: max-age=300\r\n"
                 f"LOCATION: {location}\r\n"
                 "NT: upnp:rootdevice\r\n"
                 "NTS: ssdp:alive\r\n"
@@ -198,7 +198,7 @@ class SSDPServer:
             (
                 "NOTIFY * HTTP/1.1\r\n"
                 f"HOST: {self.MULTICAST_IP}:{self.MULTICAST_PORT}\r\n"
-                "CACHE-CONTROL: max-age=1800\r\n"
+                "CACHE-CONTROL: max-age=300\r\n"
                 f"LOCATION: {location}\r\n"
                 f"NT: uuid:{self.server_instance.device_uuid}\r\n"
                 "NTS: ssdp:alive\r\n"
@@ -210,7 +210,7 @@ class SSDPServer:
             (
                 "NOTIFY * HTTP/1.1\r\n"
                 f"HOST: {self.MULTICAST_IP}:{self.MULTICAST_PORT}\r\n"
-                "CACHE-CONTROL: max-age=1800\r\n"
+                "CACHE-CONTROL: max-age=300\r\n"
                 f"LOCATION: {location}\r\n"
                 "NT: urn:schemas-upnp-org:device:MediaServer:1\r\n"
                 "NTS: ssdp:alive\r\n"
@@ -222,7 +222,7 @@ class SSDPServer:
             (
                 "NOTIFY * HTTP/1.1\r\n"
                 f"HOST: {self.MULTICAST_IP}:{self.MULTICAST_PORT}\r\n"
-                "CACHE-CONTROL: max-age=1800\r\n"
+                "CACHE-CONTROL: max-age=300\r\n"
                 f"LOCATION: {location}\r\n"
                 "NT: urn:schemas-upnp-org:service:ContentDirectory:1\r\n"
                 "NTS: ssdp:alive\r\n"
@@ -234,7 +234,7 @@ class SSDPServer:
             (
                 "NOTIFY * HTTP/1.1\r\n"
                 f"HOST: {self.MULTICAST_IP}:{self.MULTICAST_PORT}\r\n"
-                "CACHE-CONTROL: max-age=1800\r\n"
+                "CACHE-CONTROL: max-age=300\r\n"
                 f"LOCATION: {location}\r\n"
                 "NT: urn:schemas-upnp-org:service:ConnectionManager:1\r\n"
                 "NTS: ssdp:alive\r\n"
