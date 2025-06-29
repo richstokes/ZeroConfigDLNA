@@ -8,7 +8,10 @@ import socket
 import threading
 import time
 import struct
-import select
+
+HEADERS_TO_IGNORE = [ # Generally uninteresting headers
+    'NT', 'NTS', 'ST'
+]
 
 class SSDPClient:
     def __init__(self, multicast_group='239.255.255.250', multicast_port=1900, interface_ip='0.0.0.0'):
@@ -38,7 +41,21 @@ class SSDPClient:
                 print(f"Error receiving SSDP packet: {e}")
 
     def handle_ssdp_packet(self, data, addr):
-        print(f"Received SSDP packet from {addr}: {data}")
+        try:
+            decoded_data = data.decode('utf-8')
+            print(f"\nReceived SSDP packet from {addr[0]}:{addr[1]}:")
+            print("----------------------------------------")
+            for line in decoded_data.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if any(header in line for header in HEADERS_TO_IGNORE):
+                    continue
+                print(line)
+            print("----------------------------------------\n")
+        except UnicodeDecodeError:
+            print(f"\nReceived SSDP packet from {addr[0]}:{addr[1]} (unable to decode):")
+            print(data)
 
     def stop(self):
         self.running = False
