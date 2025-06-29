@@ -10,8 +10,10 @@ import time
 import struct
 
 HEADERS_TO_IGNORE = [ # Generally uninteresting headers
-    'NT', 'NTS', 'ST'
+    'NT', 'ST'
 ]
+
+HOSTS_SEEN = {}  # To keep track of unique hosts seen
 
 class SSDPClient:
     def __init__(self, multicast_group='239.255.255.250', multicast_port=1900, interface_ip='0.0.0.0'):
@@ -45,14 +47,22 @@ class SSDPClient:
             decoded_data = data.decode('utf-8')
             print(f"\nReceived SSDP packet from {addr[0]}:{addr[1]}:")
             print("----------------------------------------")
+            server_name = None
             for line in decoded_data.splitlines():
                 line = line.strip()
                 if not line:
                     continue
+                if line.startswith("SERVER:"):
+                    server_name = line.split("SERVER:", 1)[1].strip()
                 if any(header in line for header in HEADERS_TO_IGNORE):
                     continue
                 print(line)
             print("----------------------------------------")
+
+            # Update HOSTS_SEEN with the IP address and SERVER name
+            if server_name:
+                HOSTS_SEEN[addr[0]] = server_name
+
         except UnicodeDecodeError:
             print(f"\nReceived SSDP packet from {addr[0]}:{addr[1]} (unable to decode):")
             print(data)
@@ -61,6 +71,11 @@ class SSDPClient:
         self.running = False
         self.sock.close()
         self.thread.join()
+
+        # Print all hosts seen
+        print("\nHosts seen during this session:")
+        for ip, server in HOSTS_SEEN.items():
+            print(f"{ip}: {server}")
 
 def main():
     ssdp_client = SSDPClient()
