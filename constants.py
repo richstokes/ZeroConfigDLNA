@@ -16,7 +16,7 @@ hostname = socket.gethostname().split(".")[0][:16]
 
 SERVER_NAME = os.environ.get("DLNA_HOSTNAME") or f"ZeroConfigDLNA_{hostname}"
 SERVER_DESCRIPTION = "ZeroConfigDLNA Server"
-SERVER_VERSION = "1.1.19"
+SERVER_VERSION = "1.1.20"
 SERVER_MANUFACTURER = "richstokes"
 SERVER_AGENT = f"ZeroConfigDLNA/{SERVER_VERSION} DLNA/1.50 UPnP/1.0"
 
