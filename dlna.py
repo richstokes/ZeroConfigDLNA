@@ -730,7 +730,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{SERVER_DESCRIPTION}</title>
+    <title>{self.server_name}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 40px; }}
         .breadcrumb {{ display: flex; flex-wrap: wrap; list-style: none; padding: 0; margin-bottom: 20px; }}
@@ -749,7 +749,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
     </style>
 </head>
 <body>
-    <h1>{SERVER_DESCRIPTION}</h1>
+    <h1>{self.server_name}</h1>
     
     <ul class="breadcrumb">
 """
