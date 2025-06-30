@@ -34,6 +34,7 @@ class SSDPServer:
         self.running = False
         self.thread = None
         self.notify_thread = None
+        self.notify_count = 0  # Track number of NOTIFY messages sent
 
     def start(self):
         """Start the SSDP server"""
@@ -251,8 +252,10 @@ class SSDPServer:
                 sock.sendto(message.encode(), (self.MULTICAST_IP, self.MULTICAST_PORT))
                 time.sleep(0.1)  # Small delay between messages
             sock.close()
+            
+            self.notify_count += 1
             if self.verbose:
-                print("Sent SSDP NOTIFY alive messages")
+                print(f"Sent SSDP NOTIFY alive messages (#{self.notify_count})")
         except Exception as e:
             if self.verbose:
                 print(f"Error sending SSDP NOTIFY: {e}")
@@ -302,8 +305,19 @@ class SSDPServer:
                 print(f"Error sending SSDP byebye: {e}")
 
     def _periodic_notify(self):
-        """Send periodic NOTIFY alive messages"""
+        """Send periodic NOTIFY alive messages with backoff"""
         while self.running:
-            time.sleep(300)  # Send every 5 minutes (300 seconds)
+            # First 30 messages: send every 3 seconds
+            if self.notify_count < 30:
+                sleep_time = 3
+            else:
+                # After first 30 messages: send every 300 seconds (5 minutes)
+                sleep_time = 300
+            
+            for _ in range(sleep_time):
+                if not self.running:
+                    return
+                time.sleep(1)
+            
             if self.running:
                 self._send_notify_alive()
