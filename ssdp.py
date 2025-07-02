@@ -311,8 +311,8 @@ class SSDPServer:
             if self.notify_count < 30:
                 sleep_time = 3
             else:
-                # After first 30 messages: send every 300 seconds (5 minutes)
-                sleep_time = 300
+                # After first 30 messages: send every 60 seconds (1 minute)
+                sleep_time = 60
             
             for _ in range(sleep_time):
                 if not self.running:
