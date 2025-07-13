@@ -11,6 +11,7 @@ import threading
 import time
 import struct
 import select
+
 try:
     from .constants import (
         SERVER_AGENT,
@@ -137,7 +138,6 @@ class SSDPServer:
     def _send_search_response(self, addr, search_target="upnp:rootdevice"):
         """Send response to M-SEARCH request"""
         location = f"http://{self.server_instance.server_ip}:{self.server_instance.port}/description.xml"
-
         # Determine the appropriate ST and USN based on search target
         if search_target.lower() == "upnp:rootdevice":
             st = "upnp:rootdevice"
@@ -158,17 +158,19 @@ class SSDPServer:
             st = "upnp:rootdevice"
             usn = f"uuid:{self.server_instance.device_uuid}::upnp:rootdevice"
 
+        # Build response using f-strings
+        current_date = time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
         response = (
-            "HTTP/1.1 200 OK\r\n"
-            "CACHE-CONTROL: max-age=1800\r\n"
-            "DATE: {}\r\n"
+            f"HTTP/1.1 200 OK\r\n"
+            f"CACHE-CONTROL: max-age=1800\r\n"
+            f"DATE: {current_date}\r\n"
             f"EXT:\r\n"
             f"LOCATION: {location}\r\n"
             f"SERVER: {SERVER_AGENT}\r\n"
             f"ST: {st}\r\n"
             f"USN: {usn}\r\n"
             "\r\n"
-        ).format(time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime()))
+        )
 
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -252,7 +254,7 @@ class SSDPServer:
                 sock.sendto(message.encode(), (self.MULTICAST_IP, self.MULTICAST_PORT))
                 time.sleep(0.1)  # Small delay between messages
             sock.close()
-            
+
             self.notify_count += 1
             if self.verbose:
                 print(f"Sent SSDP NOTIFY alive messages (#{self.notify_count})")
@@ -313,11 +315,11 @@ class SSDPServer:
             else:
                 # After first 30 messages: send every 60 seconds (1 minute)
                 sleep_time = 60
-            
+
             for _ in range(sleep_time):
                 if not self.running:
                     return
                 time.sleep(1)
-            
+
             if self.running:
                 self._send_notify_alive()

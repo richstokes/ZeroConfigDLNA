@@ -4,9 +4,11 @@ DLNA media server handler module.
 This module provides the HTTP request handler for a DLNA media server,
 implementing the necessary DLNA and UPnP protocols for media streaming.
 """
+
 import html
 import traceback
 import os
+import socket
 import struct
 import subprocess
 import uuid
@@ -116,6 +118,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
         super().setup()
         # Set socket timeout to prevent hanging connections
         self.connection.settimeout(self.timeout)
+        # Set TCP_NODELAY on the socket
+        self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        buffer_size = 32 * 1024 * 1024  # 32MB buffer
+        self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_size)
+        self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buffer_size)
 
     def log_message(self, format, *args):  # pylint: disable=redefined-builtin
         """Override BaseHTTPRequestHandler's log_message to only log when verbose mode is enabled"""
@@ -843,7 +850,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
             if self.verbose:
                 print(f"MEDIA ACCESS: {self.path} from {client_addr}")
                 print(f"MEDIA HEADERS: {dict(self.headers)}")
-            
+
             # Set the current playing file for DLNA clients
             # Get filename after the last slash for display
             self.now_playing = os.path.basename(decoded_filename)
@@ -985,9 +992,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     try:
                         with open(file_path, "rb") as f:
                             # Use larger chunks for better performance with large files
-                            chunk_size = (
-                                65536  # 64KB chunks for better streaming performance
-                            )
+                            chunk_size = 512 * 1024  # 512KB chunks
 
                             # Set a timeout for socket operations to prevent blocking
                             self.wfile.flush()
@@ -1138,7 +1143,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
                 # Use smaller chunks for range requests to improve resume/seek performance
                 # Large chunks can cause choppy playback when resuming video
-                base_chunk_size = 8192  # 8KB base chunk size for range requests
+                base_chunk_size = 512 * 1024  # 512KB
 
                 while remaining > 0:
                     # For range requests, use smaller chunks for better streaming
@@ -2049,8 +2054,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
             }
 
             # Try to get duration using ffprobe if available (skip if fast mode is enabled)
-            if not self.fast and mime_type and (
-                mime_type.startswith("video/") or mime_type.startswith("audio/")
+            if (
+                not self.fast
+                and mime_type
+                and (mime_type.startswith("video/") or mime_type.startswith("audio/"))
             ):
                 try:
                     # Try ffprobe first (most reliable)
