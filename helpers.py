@@ -1,4 +1,5 @@
 import os
+import traceback
 from constants import SERVER_MANUFACTURER, SERVER_VERSION, SERVER_AGENT
 
 
@@ -383,3 +384,65 @@ def send_scpd_xml(self, service_type):
     self.send_header("Server", SERVER_AGENT)
     self.end_headers()
     self.wfile.write(scpd_xml.encode())
+
+
+def handle_get_protocol_info(self):
+    """Handle ConnectionManager GetProtocolInfo requests"""
+    try:
+        print("Handling GetProtocolInfo request")
+
+        # Define supported protocols with expanded format support
+        source_protocols = [
+            # Video formats
+            "http-get:*:video/mp4:DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/x-msvideo:DLNA.ORG_PN=AVI;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/x-matroska:DLNA.ORG_PN=MATROSKA;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/quicktime:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/x-ms-wmv:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/x-flv:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/webm:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/x-m4v:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:video/3gpp:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            # Audio formats
+            "http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:audio/wav:DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:audio/mp4:DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:audio/x-m4a:DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:audio/flac:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:audio/ogg:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:audio/x-ms-wma:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            "http-get:*:audio/aiff:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            # Image formats
+            "http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+            "http-get:*:image/png:DLNA.ORG_PN=PNG_LRG;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+            "http-get:*:image/gif:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+            "http-get:*:image/bmp:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+            "http-get:*:image/tiff:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+            "http-get:*:image/webp:DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+        ]
+
+        source_info = ",".join(source_protocols)
+        sink_info = ""  # This server doesn't act as a sink
+
+        response = f"""<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+<s:Body>
+    <u:GetProtocolInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
+        <Source>{source_info}</Source>
+        <Sink>{sink_info}</Sink>
+    </u:GetProtocolInfoResponse>
+</s:Body>
+</s:Envelope>"""
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/xml; charset=utf-8")
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response.encode())
+        if self.verbose:
+            print("Sent GetProtocolInfo response")
+
+    except Exception as e:
+        print(f"Error handling GetProtocolInfo: {e}")
+        traceback.print_exc()
+        self.send_error(500, "Internal server error")
