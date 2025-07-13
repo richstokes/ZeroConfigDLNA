@@ -19,6 +19,7 @@ from helpers import (
     handle_get_protocol_info,
     parse_avi_duration,
     parse_mp4_duration,
+    create_directory_mapping,
 )
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import unquote, urlparse, quote
@@ -1400,42 +1401,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
     def _create_directory_mapping(self):
         """Create a mapping between directory paths and IDs"""
-        # This is a simple mapping system that assigns numeric IDs to each path
-        # Root (0) and Media directory (1) are already assigned
-        mapping = {
-            "0": "",  # Root
-            "1": "",  # Media directory
-        }
-
-        # Start ID counter from 2 (0 and 1 are reserved)
-        id_counter = 2
-
-        # Helper function to scan directories recursively
-        def scan_dir(dir_path, relative_path=""):
-            nonlocal id_counter
-
-            try:
-                for item in os.listdir(dir_path):
-                    item_path = os.path.join(dir_path, item)
-                    item_rel_path = (
-                        os.path.join(relative_path, item) if relative_path else item
-                    )
-
-                    # Assign an ID to this path
-                    mapping[str(id_counter)] = item_rel_path
-                    mapping[item_rel_path] = str(id_counter)
-                    id_counter += 1
-
-                    # Recursively scan subdirectories
-                    if os.path.isdir(item_path):
-                        scan_dir(item_path, item_rel_path)
-            except Exception as e:
-                print(f"Error scanning directory {dir_path}: {e}")
-
-        # Start scanning from the media directory
-        scan_dir(self.server_instance.media_directory)
-
-        return mapping
+        # Use the helper function from helpers.py
+        return create_directory_mapping(self.server_instance.media_directory)
 
     def _get_id_for_path(self, path):
         """Get the ID for a specific path"""
