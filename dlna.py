@@ -860,169 +860,22 @@ class DLNAHandler(BaseHTTPRequestHandler):
             print(f"NOW PLAYING: {self.now_playing}")
 
             # Handle range requests for video streaming
+            # Xbox Media Player requires 206 Partial Content for ALL media files,
+            # even when Range header is missing, malformed, or Range: bytes=0-
             range_header = self.headers.get("Range")
-            if range_header and not head_only:
-                try:
-                    self.handle_range_request(
-                        file_path, file_size, mime_type, range_header
+
+            # Always use range request handling for media files to ensure Xbox compatibility
+            try:
+                self.handle_range_request(
+                    file_path, file_size, mime_type, range_header, head_only
+                )
+            except (BrokenPipeError, ConnectionResetError):
+                # Client disconnected, log and return without further error handling
+                if self.verbose:
+                    print(
+                        f"Client disconnected during range request for {decoded_filename}"
                     )
-                except (BrokenPipeError, ConnectionResetError):
-                    # Client disconnected, log and return without further error handling
-                    if self.verbose:
-                        print(
-                            f"Client disconnected during range request for {decoded_filename}"
-                        )
-                    return
-            else:
-                self.send_response(200)
-                self.send_header("Content-Type", mime_type)
-                self.send_header("Content-Length", str(file_size))
-                self.send_header("Accept-Ranges", "bytes")
-                # Add DLNA headers for better Sony TV compatibility
-                if mime_type.startswith("video/"):
-                    if mime_type == "video/x-msvideo":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/mp4":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_PN=MP4_SD_AAC_LTP;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/x-matroska":
-                        # MKV files - use generic video profile with streaming support
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/quicktime":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/x-ms-wmv":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/x-flv":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/webm":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/x-m4v":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "video/3gpp":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    else:
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                elif mime_type.startswith("audio/"):
-                    if mime_type == "audio/mpeg":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "audio/wav":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type in ("audio/mp4", "audio/x-m4a"):
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "audio/flac":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "audio/ogg":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "audio/x-ms-wma":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    elif mime_type == "audio/aiff":
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                    else:
-                        self.send_header(
-                            "contentFeatures.dlna.org",
-                            "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
-                        )
-                else:
-                    self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
-                    )
-                self.send_header("transferMode.dlna.org", "Streaming")
-                # Add server identification and additional compatibility headers
-                self.send_header("Server", SERVER_AGENT)
-                # Keep connection alive for better streaming performance
-                self.send_header("Connection", "keep-alive")
-                # Add cache control for better performance - allow short-term caching
-                # The SystemUpdateID mechanism will handle cache invalidation
-                self.send_header("Cache-Control", "max-age=300, must-revalidate")
-                self.end_headers()
-
-                # Only send file content for GET requests, not HEAD
-                if not head_only:
-                    try:
-                        with open(file_path, "rb") as f:
-                            # Use larger chunks for better performance with large files
-                            chunk_size = 512 * 1024  # 512KB chunks
-
-                            # Set a timeout for socket operations to prevent blocking
-                            self.wfile.flush()
-
-                            while True:
-                                chunk = f.read(chunk_size)
-                                if not chunk:
-                                    break
-                                try:
-                                    self.wfile.write(chunk)
-                                    # Only flush every few chunks to improve performance
-                                    if f.tell() % (chunk_size * 4) == 0:
-                                        self.wfile.flush()
-                                except (BrokenPipeError, ConnectionResetError):
-                                    # Client disconnected during write
-                                    if self.verbose:
-                                        print(
-                                            f"Client disconnected during streaming of {decoded_filename}"
-                                        )
-                                    return
-                            # Final flush
-                            self.wfile.flush()
-                    except (BrokenPipeError, ConnectionResetError):
-                        # Client disconnected, log and exit gracefully
-                        # This happens a lot due to how DLNA clients handle streaming
-                        if self.verbose:
-                            print(
-                                f"Client disconnected during streaming of {decoded_filename}"
-                            )
-                        return
+                return
 
         except (BrokenPipeError, ConnectionResetError):
             # Client disconnected
@@ -1037,18 +890,63 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 print("Client disconnected while sending error response")
                 return
 
-    def handle_range_request(self, file_path, file_size, mime_type, range_header):
+    def handle_range_request(
+        self, file_path, file_size, mime_type, range_header, head_only=False
+    ):
         """Handle HTTP range requests for streaming
 
         Uses smaller chunk sizes compared to full file streaming to improve
         responsiveness during video resume/seek operations and reduce choppiness.
+
+        For Xbox compatibility, this method ALWAYS returns 206 Partial Content,
+        even when Range header is missing, malformed, or Range: bytes=0-
+
+        Args:
+            file_path: Path to the file being served
+            file_size: Size of the file in bytes
+            mime_type: MIME type of the file
+            range_header: The Range header value from the request (can be None/malformed)
+            head_only: If True, only send headers (for HEAD requests)
         """
         try:
-            range_match = range_header.replace("bytes=", "").split("-")
-            start = int(range_match[0]) if range_match[0] else 0
-            end = int(range_match[1]) if range_match[1] else file_size - 1
+            # Default to entire file range (Xbox compatibility requirement)
+            start = 0
+            end = file_size - 1
+
+            # Parse Range header if present and valid
+            if range_header and range_header.startswith("bytes="):
+                range_match = range_header.replace("bytes=", "").split("-")
+                if len(range_match) == 2:
+                    try:
+                        # Parse start position
+                        if range_match[0]:
+                            start = int(range_match[0])
+                        # Parse end position
+                        if range_match[1]:
+                            end = int(range_match[1])
+
+                        # Validate range bounds
+                        if start < 0 or end >= file_size or start > end:
+                            # Invalid range, fall back to entire file
+                            start = 0
+                            end = file_size - 1
+                    except ValueError:
+                        # Invalid range values, fall back to entire file
+                        start = 0
+                        end = file_size - 1
 
             content_length = end - start + 1
+
+            # Always send 206 Partial Content for Xbox compatibility
+            if self.verbose:
+                if not range_header:
+                    print(f"Xbox compatibility: Using 206 for missing Range header")
+                elif not range_header.startswith("bytes="):
+                    print(
+                        f"Xbox compatibility: Using 206 for malformed Range header: {range_header}"
+                    )
+                else:
+                    print(f"Standard range request: {range_header}")
 
             self.send_response(206)
             self.send_header("Content-Type", mime_type)
@@ -1059,19 +957,19 @@ class DLNAHandler(BaseHTTPRequestHandler):
             if mime_type.startswith("video/"):
                 if mime_type == "video/x-msvideo":
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 elif mime_type == "video/mp4":
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_PN=MP4_SD_AAC_LTP;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_PN=MP4_SD_AAC_LTP;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 elif mime_type == "video/x-matroska":
                     # MKV files - use generic video profile with streaming support
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_PN=AVC_MP4_BL_CIF15_AAC_520;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 elif mime_type in (
                     "video/quicktime",
@@ -1082,29 +980,29 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     "video/3gpp",
                 ):
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 else:
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_PN=AVC_MP4_BL_CIF15_AAC_520;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
             elif mime_type.startswith("audio/"):
                 if mime_type == "audio/mpeg":
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 elif mime_type == "audio/wav":
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 elif mime_type in ("audio/mp4", "audio/x-m4a"):
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_PN=AAC_ISO_320;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 elif mime_type in (
                     "audio/flac",
@@ -1113,20 +1011,20 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     "audio/aiff",
                 ):
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
                 else:
                     self.send_header(
-                        "contentFeatures.dlna.org",
-                        "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                        "ContentFeatures.DLNA.ORG",
+                        "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000",
                     )
             else:
                 self.send_header(
-                    "contentFeatures.dlna.org",
-                    "DLNA.ORG_OP=01;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
+                    "ContentFeatures.DLNA.ORG",
+                    "DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=00D00000000000000000000000000000",
                 )
-            self.send_header("transferMode.dlna.org", "Streaming")
+            self.send_header("TransferMode.DLNA.ORG", "Streaming")
             self.send_header("Server", SERVER_AGENT)
             # Keep connection alive for range requests
             self.send_header("Connection", "keep-alive")
@@ -1134,51 +1032,55 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "max-age=3600")
             self.end_headers()
 
-            with open(file_path, "rb") as f:
-                f.seek(start)
-                remaining = content_length
+            # Only send file content for GET requests, not HEAD
+            if not head_only:
+                with open(file_path, "rb") as f:
+                    f.seek(start)
+                    remaining = content_length
 
-                # Set a timeout for socket operations to prevent blocking
-                self.wfile.flush()
+                    # Set a timeout for socket operations to prevent blocking
+                    self.wfile.flush()
 
-                # Use smaller chunks for range requests to improve resume/seek performance
-                # Large chunks can cause choppy playback when resuming video
-                base_chunk_size = 512 * 1024  # 512KB
+                    # Use smaller chunks for range requests to improve resume/seek performance
+                    # Large chunks can cause choppy playback when resuming video
+                    base_chunk_size = 512 * 1024  # 512KB
 
-                while remaining > 0:
-                    # For range requests, use smaller chunks for better streaming
-                    # This helps with choppy playback when resuming videos
-                    chunk_size = min(base_chunk_size, remaining)
-                    if remaining > 2 * 1024 * 1024:  # If more than 2MB remaining
-                        chunk_size = min(16 * 1024, remaining)  # Use 16KB chunks max
+                    while remaining > 0:
+                        # For range requests, use smaller chunks for better streaming
+                        # This helps with choppy playback when resuming videos
+                        chunk_size = min(base_chunk_size, remaining)
+                        if remaining > 2 * 1024 * 1024:  # If more than 2MB remaining
+                            chunk_size = min(
+                                16 * 1024, remaining
+                            )  # Use 16KB chunks max
 
-                    chunk = f.read(chunk_size)
-                    if not chunk:
-                        break
-                    try:
-                        self.wfile.write(chunk)
-                        # Flush more frequently for range requests to reduce latency
-                        # This helps with responsive seeking and resume functionality
-                        if remaining % (base_chunk_size * 2) == 0:
-                            self.wfile.flush()
-                        remaining -= len(chunk)
-                    except BrokenPipeError:
-                        # Client disconnected, log it and exit gracefully
-                        # This happens a lot due to how DLNA clients handle streaming
-                        if self.verbose:
-                            print(
-                                f"Client disconnected during streaming of {os.path.basename(file_path)}"
-                            )
-                        return
-                    except ConnectionResetError:
-                        # Connection reset by client
-                        if self.verbose:
-                            print(
-                                f"Connection reset during streaming of {os.path.basename(file_path)}"
-                            )
-                        return
-                # Final flush
-                self.wfile.flush()
+                        chunk = f.read(chunk_size)
+                        if not chunk:
+                            break
+                        try:
+                            self.wfile.write(chunk)
+                            # Flush more frequently for range requests to reduce latency
+                            # This helps with responsive seeking and resume functionality
+                            if remaining % (base_chunk_size * 2) == 0:
+                                self.wfile.flush()
+                            remaining -= len(chunk)
+                        except BrokenPipeError:
+                            # Client disconnected, log it and exit gracefully
+                            # This happens a lot due to how DLNA clients handle streaming
+                            if self.verbose:
+                                print(
+                                    f"Client disconnected during streaming of {os.path.basename(file_path)}"
+                                )
+                            return
+                        except ConnectionResetError:
+                            # Connection reset by client
+                            if self.verbose:
+                                print(
+                                    f"Connection reset during streaming of {os.path.basename(file_path)}"
+                                )
+                            return
+                    # Final flush
+                    self.wfile.flush()
 
         except BrokenPipeError:
             # Client disconnected before we could send headers
