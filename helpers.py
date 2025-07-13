@@ -1,4 +1,5 @@
 import os
+import struct
 import traceback
 from constants import SERVER_MANUFACTURER, SERVER_VERSION, SERVER_AGENT
 
@@ -446,3 +447,80 @@ def handle_get_protocol_info(self):
         print(f"Error handling GetProtocolInfo: {e}")
         traceback.print_exc()
         self.send_error(500, "Internal server error")
+
+
+def parse_avi_duration(self, file_path):
+    """
+    Basic AVI duration parsing using binary file reading.
+    Looks for avih chunk which contains frame rate and total frames.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            # Read first 64KB to look for avih chunk
+            data = f.read(65536)
+
+            # Look for 'avih' chunk
+            avih_pos = data.find(b"avih")
+            if avih_pos == -1:
+                return None
+
+            # avih structure includes microseconds per frame and total frames
+            # Skip chunk header and get to the data
+            microsec_per_frame_pos = avih_pos + 8  # Skip 'avih' + size
+            total_frames_pos = microsec_per_frame_pos + 4
+
+            if total_frames_pos + 4 <= len(data):
+                microsec_per_frame = struct.unpack(
+                    "<I", data[microsec_per_frame_pos : microsec_per_frame_pos + 4]
+                )[0]
+                total_frames = struct.unpack(
+                    "<I", data[total_frames_pos : total_frames_pos + 4]
+                )[0]
+
+                if microsec_per_frame > 0 and total_frames > 0:
+                    duration_seconds = (total_frames * microsec_per_frame) / 1000000
+                    return self._seconds_to_hms(duration_seconds)
+
+    except Exception as e:
+        print(f"Error parsing AVI duration: {e}")
+
+    return None
+
+
+def parse_mp4_duration(self, file_path):
+    """
+    Basic MP4 duration parsing using binary file reading.
+    Looks for mvhd atom which contains duration information.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            # Read first 64KB to look for mvhd atom
+            data = f.read(65536)
+
+            # Look for 'mvhd' atom
+            mvhd_pos = data.find(b"mvhd")
+            if mvhd_pos == -1:
+                return None
+
+            # Skip to timescale and duration fields
+            # mvhd structure: size(4) + type(4) + version(1) + flags(3) +
+            # creation_time(4) + modification_time(4) + timescale(4) + duration(4)
+            timescale_pos = (
+                mvhd_pos + 12
+            )  # Skip mvhd + version/flags + creation/modification time
+            duration_pos = timescale_pos + 4
+
+            if duration_pos + 4 <= len(data):
+                timescale = struct.unpack(
+                    ">I", data[timescale_pos : timescale_pos + 4]
+                )[0]
+                duration = struct.unpack(">I", data[duration_pos : duration_pos + 4])[0]
+
+                if timescale > 0:
+                    duration_seconds = duration / timescale
+                    return self._seconds_to_hms(duration_seconds)
+
+    except Exception as e:
+        print(f"Error parsing MP4 duration: {e}")
+
+    return None
