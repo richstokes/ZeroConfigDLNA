@@ -12,6 +12,7 @@ a = Analysis(
         ('ssdp.py', '.'),
         ('mime.types', '.'),
         ('custom_mimetypes.py', '.'),
+        ('helpers.py', '.')
     ],
     hiddenimports=[],
     hookspath=[],
