@@ -1,4 +1,5 @@
 """Zero Configuration DLNA Server - A simple DLNA media server."""
+
 import hashlib
 import os
 import socket
@@ -7,7 +8,7 @@ import time
 from http.server import ThreadingHTTPServer
 import argparse
 
-try: # Hacky but needed to support both package and module imports
+try:  # Hacky but needed to support both package and module imports
     from .constants import (
         SERVER_NAME,
         SERVER_DESCRIPTION,
@@ -38,7 +39,12 @@ class ZeroConfigDLNA:
     """
 
     def __init__(
-        self, media_directory=None, port=8200, verbose=False, server_name=None, fast=False
+        self,
+        media_directory=None,
+        port=8200,
+        verbose=False,
+        server_name=None,
+        fast=False,
     ):
         self.server_name = server_name
         self.version = SERVER_VERSION
@@ -70,10 +76,11 @@ class ZeroConfigDLNA:
 
         self.now_playing = None  # Track currently playing media
         self.now_playing_timestamp = None  # Track when media was last accessed
-    
+
     def get_now_playing(self):
         """Get the currently playing media file from the server."""
         import time
+
         if self.now_playing:
             time_since_access = None
             if self.now_playing_timestamp:
@@ -83,7 +90,7 @@ class ZeroConfigDLNA:
                 "status": "playing",
                 "server_running": self.running,
                 "last_accessed": self.now_playing_timestamp,
-                "seconds_since_access": time_since_access
+                "seconds_since_access": time_since_access,
             }
         else:
             return {
@@ -91,12 +98,13 @@ class ZeroConfigDLNA:
                 "status": "no media playing",
                 "server_running": self.running,
                 "last_accessed": None,
-                "seconds_since_access": None
+                "seconds_since_access": None,
             }
 
     def set_now_playing(self, filename):
         """Set the currently playing media file."""
         import time
+
         self.now_playing = filename
         self.now_playing_timestamp = time.time()
         if self.verbose:
@@ -189,7 +197,9 @@ class ZeroConfigDLNA:
                 (self.server_ip, self.port), self.create_handler()
             )
             # Set server-side timeout to ensure we don't block forever on client operations
-            self.server.timeout = 300  # Long timeout for media streaming / pausing etc
+            self.server.timeout = (
+                7200  # Very long timeout for media streaming / pausing etc
+            )
             self.server_thread = threading.Thread(target=self.server.serve_forever)
             self.server_thread.daemon = True
             self.server_thread.start()
@@ -350,11 +360,11 @@ class ZeroConfigDLNA:
         target_file = filename or self.now_playing
         if not target_file:
             return None
-            
+
         file_path = os.path.join(self.media_directory, target_file)
         if not os.path.exists(file_path):
             return None
-            
+
         try:
             stat_info = os.stat(file_path)
             return {
@@ -362,10 +372,11 @@ class ZeroConfigDLNA:
                 "full_path": file_path,
                 "size": stat_info.st_size,
                 "modified": stat_info.st_mtime,
-                "is_supported": is_supported_media_file(file_path)
+                "is_supported": is_supported_media_file(file_path),
             }
         except OSError:
             return None
+
 
 def main():
     """Main entry point for the DLNA server application."""
