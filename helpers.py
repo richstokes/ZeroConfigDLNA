@@ -1,12 +1,19 @@
 import os
 import struct
 import traceback
-from constants import (
-    SERVER_MANUFACTURER,
-    SERVER_VERSION,
-    SERVER_AGENT,
-    is_supported_media_file,
-)
+
+try:
+    from .constants import (
+        SERVER_MANUFACTURER,
+        SERVER_VERSION,
+        SERVER_AGENT,
+    )
+except ImportError:
+    from constants import (
+        SERVER_MANUFACTURER,
+        SERVER_VERSION,
+        SERVER_AGENT,
+    )
 
 
 def is_safe_path(base_dir, requested_path):

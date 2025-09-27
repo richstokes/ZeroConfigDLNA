@@ -12,15 +12,29 @@ import socket
 import struct
 import subprocess
 import uuid
-from helpers import (
-    is_safe_path,
-    send_device_description,
-    send_scpd_xml,
-    handle_get_protocol_info,
-    parse_avi_duration,
-    parse_mp4_duration,
-    create_directory_mapping,
-)
+
+try:
+    from .helpers import (
+        is_safe_path,
+        send_device_description,
+        send_scpd_xml,
+        handle_get_protocol_info,
+        parse_avi_duration,
+        parse_mp4_duration,
+        create_directory_mapping,
+    )
+    from http.server import BaseHTTPRequestHandler
+    from urllib.parse import unquote, urlparse, quote
+except ImportError:
+    from helpers import (
+        is_safe_path,
+        send_device_description,
+        send_scpd_xml,
+        handle_get_protocol_info,
+        parse_avi_duration,
+        parse_mp4_duration,
+        create_directory_mapping,
+    )
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import unquote, urlparse, quote
 
