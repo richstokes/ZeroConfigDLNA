@@ -64,8 +64,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
     fast = False  # Fast mode flag to disable subprocess calls
 
     def __init__(self, *args, **kwargs):
-        # Set default timeout for socket operations (5 minutes)
-        self.timeout = 300
+        # Set default timeout for socket operations (30 minutes)
+        self.timeout = 1800
         # Initialize directory mapping attribute
         self.directory_mapping = None
         try:
