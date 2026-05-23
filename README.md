@@ -7,7 +7,8 @@ Share media from your computer to your TV (or any other UPnP device!) with a sin
 &nbsp;
 
 ## Quick Start - MacOS
-Mac users can download `Easy Media Server` from the App Store, [here](https://apps.apple.com/us/app/easy-media-server/id6747689205). Easy Media Server is the graphical interface, which uses this repo as it's backend.  
+I have a commercial product, [Media Server Pro](https://mediaserverpro.com) for macOS users which is the easy way! Otherwise, you can run this python app below.
+
 
 &nbsp; 
 
