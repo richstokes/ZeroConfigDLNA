@@ -501,12 +501,13 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 self.server_instance.set_now_playing(self.now_playing)
             print(f"NOW PLAYING: {self.now_playing}")
 
-            # Handle range requests for video streaming
-            # Xbox Media Player requires 206 Partial Content for ALL media files,
-            # even when Range header is missing, malformed, or Range: bytes=0-
+            # Handle full and partial media responses. Xbox Media Player expects a
+            # 206 response even when it omits the Range header, but applying that
+            # workaround to every client breaks renderers that expect normal HTTP
+            # semantics (a full response without Range must be 200).
             range_header = self.headers.get("Range")
 
-            # Always use range request handling for media files to ensure Xbox compatibility
+            # Use one response path so full and partial requests share DLNA headers.
             try:
                 self.handle_range_request(
                     file_path, file_size, mime_type, range_header, head_only
@@ -540,8 +541,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
         Uses smaller chunk sizes compared to full file streaming to improve
         responsiveness during video resume/seek operations and reduce choppiness.
 
-        For Xbox compatibility, this method ALWAYS returns 206 Partial Content,
-        even when Range header is missing, malformed, or Range: bytes=0-
+        Return 206 Partial Content for range requests. Xbox clients also receive
+        206 when they omit or send a malformed Range header for compatibility; other
+        clients receive a standard 200 response for the complete file.
 
         Args:
             file_path: Path to the file being served
@@ -551,9 +553,11 @@ class DLNAHandler(BaseHTTPRequestHandler):
             head_only: If True, only send headers (for HEAD requests)
         """
         try:
-            # Default to entire file range (Xbox compatibility requirement)
+            # Default to the entire file. This is a 200 response unless the client
+            # supplied a valid range or identifies itself as an Xbox.
             start = 0
             end = file_size - 1
+            valid_range = False
 
             # Parse Range header if present and valid
             if range_header and range_header.startswith("bytes="):
@@ -572,28 +576,34 @@ class DLNAHandler(BaseHTTPRequestHandler):
                             # Invalid range, fall back to entire file
                             start = 0
                             end = file_size - 1
+                        else:
+                            valid_range = True
                     except ValueError:
                         # Invalid range values, fall back to entire file
                         start = 0
                         end = file_size - 1
 
             content_length = end - start + 1
+            user_agent = self.headers.get("User-Agent", "")
+            xbox_compatibility = "xbox" in user_agent.lower()
+            partial_response = valid_range or xbox_compatibility
 
-            # Always send 206 Partial Content for Xbox compatibility
             if self.verbose:
-                if not range_header:
-                    print(f"Xbox compatibility: Using 206 for missing Range header")
-                elif not range_header.startswith("bytes="):
+                if xbox_compatibility and not valid_range:
                     print(
-                        f"Xbox compatibility: Using 206 for malformed Range header: {range_header}"
+                        "Xbox compatibility: Using 206 for missing or malformed "
+                        f"Range header: {range_header}"
                     )
-                else:
+                elif valid_range:
                     print(f"Standard range request: {range_header}")
+                else:
+                    print("Standard full-file request: Using 200")
 
-            self.send_response(206)
+            self.send_response(206 if partial_response else 200)
             self.send_header("Content-Type", mime_type)
             self.send_header("Content-Length", str(content_length))
-            self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
+            if partial_response:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
             self.send_header("Accept-Ranges", "bytes")
             # Add DLNA headers for better device compatibility
             if mime_type.startswith("video/"):
