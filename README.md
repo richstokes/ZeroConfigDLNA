@@ -67,3 +67,6 @@ Tested and known working on:
 
 Feel free to open an issue with the log output if you run into problems and I'll see if I can fix it. Use the `-v` flag to turn on verbose logging.  
 
+### External subtitles
+
+UTF-8 SubRip (`.srt`) sidecar subtitles are advertised to compatible players using common Samsung and Panasonic-style DLNA extensions. Put the subtitle beside the video and use the same base name, for example `Movie.mkv` with `Movie.srt`. Language-tagged names such as `Movie.en.srt` are also detected. Subtitle support ultimately depends on the receiving player.

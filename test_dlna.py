@@ -83,6 +83,109 @@ class MediaResponseTest(unittest.TestCase):
         self.assertEqual(handler.response_headers["Content-Range"], "bytes 0-9/10")
         self.assertEqual(handler.wfile.getvalue(), b"0123456789")
 
+    def test_subtitle_url_is_added_to_media_response(self):
+        """A sidecar URL is exposed through the Samsung response header."""
+        handler = self.make_handler()
+        subtitle_url = "http://127.0.0.1:8000/subtitles/Movie.srt"
+
+        handler.handle_range_request(
+            self.temp_path,
+            10,
+            "video/x-matroska",
+            None,
+            True,
+            subtitle_url,
+        )
+
+        self.assertEqual(handler.response_headers["CaptionInfo.sec"], subtitle_url)
+
+
+class SubtitleSupportTest(unittest.TestCase):
+    """Verify SRT sidecar discovery, metadata, and delivery."""
+
+    def setUp(self):
+        """Create a video and language-tagged subtitle fixture."""
+        self.temp_directory = tempfile.TemporaryDirectory()
+        self.video_path = os.path.join(self.temp_directory.name, "Movie.mkv")
+        self.language_subtitle_path = os.path.join(
+            self.temp_directory.name, "Movie.en.srt"
+        )
+        with open(self.video_path, "wb") as video_file:
+            video_file.write(b"video")
+        with open(self.language_subtitle_path, "wb") as subtitle_file:
+            subtitle_file.write(b"language subtitle")
+
+        self.handler = DLNAHandler.__new__(DLNAHandler)
+        self.handler.fast = True
+        self.handler.verbose = False
+        self.handler.server_instance = Mock(
+            media_directory=self.temp_directory.name,
+            server_ip="127.0.0.1",
+            port=8000,
+        )
+
+    def tearDown(self):
+        """Remove the subtitle fixtures."""
+        self.temp_directory.cleanup()
+
+    def test_exact_sidecar_is_preferred_over_language_variant(self):
+        """Movie.srt wins over language-tagged sidecars when both exist."""
+        self.assertEqual(
+            self.handler._find_sidecar_subtitle(self.video_path),
+            self.language_subtitle_path,
+        )
+
+        exact_subtitle_path = os.path.join(self.temp_directory.name, "Movie.srt")
+        with open(exact_subtitle_path, "wb") as subtitle_file:
+            subtitle_file.write(b"exact subtitle")
+
+        self.assertEqual(
+            self.handler._find_sidecar_subtitle(self.video_path), exact_subtitle_path
+        )
+
+    def test_didl_advertises_common_subtitle_extensions(self):
+        """DIDL includes generic, Samsung, and Panasonic-style hints."""
+        file_info = {
+            "id": "2",
+            "name": "Movie.mkv",
+            "path": "Movie.mkv",
+            "full_path": self.video_path,
+            "mime_type": "video/x-matroska",
+            "size": os.path.getsize(self.video_path),
+        }
+
+        didl = self.handler._create_media_item_didl(file_info, "1")
+        subtitle_url = "http://127.0.0.1:8000/subtitles/Movie.en.srt"
+
+        self.assertIn('pv:subtitleFileType="SRT"', didl)
+        self.assertIn(f'pv:subtitleFileUri="{subtitle_url}"', didl)
+        self.assertIn(
+            f'<res protocolInfo="http-get:*:text/srt:*">{subtitle_url}</res>', didl
+        )
+        self.assertIn(
+            f'<sec:CaptionInfoEx sec:type="srt">{subtitle_url}</sec:CaptionInfoEx>',
+            didl,
+        )
+
+    def test_subtitle_response_is_utf8_text(self):
+        """The dedicated endpoint returns a normal full subtitle response."""
+        self.handler.wfile = io.BytesIO()
+        self.handler.response_status = None
+        self.handler.response_headers = {}
+        self.handler.send_response = lambda status: setattr(
+            self.handler, "response_status", status
+        )
+        self.handler.send_header = self.handler.response_headers.__setitem__
+        self.handler.end_headers = Mock()
+
+        self.handler.serve_subtitle_file("Movie.en.srt")
+
+        self.assertEqual(self.handler.response_status, 200)
+        self.assertEqual(
+            self.handler.response_headers["Content-Type"], "text/srt; charset=utf-8"
+        )
+        self.assertEqual(self.handler.wfile.getvalue(), b"language subtitle")
+
 
 if __name__ == "__main__":
     unittest.main()

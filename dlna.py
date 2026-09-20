@@ -60,6 +60,9 @@ except ImportError:
 # Create a global instance of CustomMimeTypes
 custom_mimetypes = CustomMimeTypes()
 
+SUBTITLE_EXTENSION = ".srt"
+SUBTITLE_MIME_TYPE = "text/srt"
+
 
 class DLNAHandler(BaseHTTPRequestHandler):
     """
@@ -147,6 +150,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
                     print(f"Range: {self.headers.get('Range', 'None')}")
 
                 self.serve_media_file(path[7:])  # Remove '/media/' prefix
+            elif path.startswith("/subtitles/"):
+                self.serve_subtitle_file(path[11:])
             else:
                 self.send_error(404, "File not found")
         except (BrokenPipeError, ConnectionResetError):
@@ -178,6 +183,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 self.serve_media_file(
                     path[7:], head_only=True
                 )  # Remove '/media/' prefix
+            elif path.startswith("/subtitles/"):
+                self.serve_subtitle_file(path[11:], head_only=True)
             else:
                 self.send_error(404, "File not found")
         except (BrokenPipeError, ConnectionResetError):
@@ -458,6 +465,109 @@ class DLNAHandler(BaseHTTPRequestHandler):
             self.send_error(500, f"Error reading directory: {str(e)}")
             traceback.print_exc()
 
+    def _find_sidecar_subtitle(self, media_path):
+        """Find the preferred SRT sidecar for a video file."""
+        media_stem = os.path.splitext(os.path.basename(media_path))[0]
+        media_stem_folded = media_stem.casefold()
+        media_directory = os.path.dirname(media_path)
+        candidates = []
+
+        try:
+            for item_name in os.listdir(media_directory):
+                subtitle_stem, subtitle_extension = os.path.splitext(item_name)
+                if subtitle_extension.casefold() != SUBTITLE_EXTENSION:
+                    continue
+
+                subtitle_stem_folded = subtitle_stem.casefold()
+                if subtitle_stem_folded == media_stem_folded:
+                    priority = 0
+                elif subtitle_stem_folded.startswith(f"{media_stem_folded}."):
+                    priority = 1
+                else:
+                    continue
+
+                subtitle_path = os.path.join(media_directory, item_name)
+                if os.path.isfile(subtitle_path) and is_safe_path(
+                    self.server_instance.media_directory, subtitle_path
+                ):
+                    candidates.append((priority, item_name.casefold(), subtitle_path))
+        except OSError:
+            return None
+
+        if not candidates:
+            return None
+
+        candidates.sort()
+        return candidates[0][2]
+
+    def _get_subtitle_info(self, media_path):
+        """Return the URL and path for a video's preferred SRT sidecar."""
+        subtitle_path = self._find_sidecar_subtitle(media_path)
+        if not subtitle_path:
+            return None
+
+        relative_path = os.path.relpath(
+            subtitle_path, self.server_instance.media_directory
+        ).replace(os.sep, "/")
+        encoded_path = quote(relative_path, safe="")
+        subtitle_url = (
+            f"http://{self.server_instance.server_ip}:{self.server_instance.port}"
+            f"/subtitles/{encoded_path}"
+        )
+        return {
+            "full_path": subtitle_path,
+            "relative_path": relative_path,
+            "url": subtitle_url,
+        }
+
+    def serve_subtitle_file(self, filename, head_only=False):
+        """Serve an SRT subtitle without media-stream response quirks."""
+        try:
+            decoded_filename = unquote(filename)
+            file_path = os.path.join(
+                self.server_instance.media_directory, decoded_filename
+            )
+
+            if not is_safe_path(self.server_instance.media_directory, file_path):
+                self.send_error(403, "Access denied")
+                print(f"SECURITY WARNING: Attempted directory traversal to {file_path}")
+                return
+
+            if (
+                not os.path.isfile(file_path)
+                or os.path.splitext(file_path)[1].casefold() != SUBTITLE_EXTENSION
+            ):
+                self.send_error(404, "Subtitle not found")
+                return
+
+            file_size = os.path.getsize(file_path)
+            self.send_response(200)
+            self.send_header(
+                "Content-Type", f"{SUBTITLE_MIME_TYPE}; charset=utf-8"
+            )
+            self.send_header("Content-Length", str(file_size))
+            self.send_header("TransferMode.DLNA.ORG", "Interactive")
+            self.send_header("Server", SERVER_AGENT)
+            self.send_header("Cache-Control", "max-age=3600")
+            self.end_headers()
+
+            if not head_only:
+                with open(file_path, "rb") as subtitle_file:
+                    while True:
+                        chunk = subtitle_file.read(64 * 1024)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            if self.verbose:
+                print(f"Client disconnected while reading subtitle {filename}")
+        except Exception as e:
+            print(f"Error serving subtitle {filename}: {str(e)}")
+            try:
+                self.send_error(500, f"Error serving subtitle: {str(e)}")
+            except (BrokenPipeError, ConnectionResetError):
+                return
+
     def serve_media_file(self, filename, head_only=False):
         """Serve a media file"""
         try:
@@ -506,11 +616,19 @@ class DLNAHandler(BaseHTTPRequestHandler):
             # workaround to every client breaks renderers that expect normal HTTP
             # semantics (a full response without Range must be 200).
             range_header = self.headers.get("Range")
+            subtitle_info = None
+            if mime_type.startswith("video/"):
+                subtitle_info = self._get_subtitle_info(file_path)
 
             # Use one response path so full and partial requests share DLNA headers.
             try:
                 self.handle_range_request(
-                    file_path, file_size, mime_type, range_header, head_only
+                    file_path,
+                    file_size,
+                    mime_type,
+                    range_header,
+                    head_only,
+                    subtitle_info["url"] if subtitle_info else None,
                 )
             except (BrokenPipeError, ConnectionResetError):
                 # Client disconnected, log and return without further error handling
@@ -534,7 +652,13 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 return
 
     def handle_range_request(
-        self, file_path, file_size, mime_type, range_header, head_only=False
+        self,
+        file_path,
+        file_size,
+        mime_type,
+        range_header,
+        head_only=False,
+        subtitle_url=None,
     ):
         """Handle HTTP range requests for streaming
 
@@ -605,6 +729,8 @@ class DLNAHandler(BaseHTTPRequestHandler):
             if partial_response:
                 self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
             self.send_header("Accept-Ranges", "bytes")
+            if subtitle_url:
+                self.send_header("CaptionInfo.sec", subtitle_url)
             # Add DLNA headers for better device compatibility
             if mime_type.startswith("video/"):
                 if mime_type == "video/x-msvideo":
@@ -1382,7 +1508,9 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
                 'xmlns:dc="http://purl.org/dc/elements/1.1/" '
                 'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
-                'xmlns:dlna="urn:schemas-dlna-org:metadata-1-0/">\n'
+                'xmlns:dlna="urn:schemas-dlna-org:metadata-1-0/" '
+                'xmlns:sec="http://www.sec.co.kr/" '
+                'xmlns:pv="http://www.pv.com/pvns/">\n'
                 + "\n".join(didl_items)
                 + "\n</DIDL-Lite>"
             )
@@ -1627,6 +1755,25 @@ class DLNAHandler(BaseHTTPRequestHandler):
         duration = self._get_media_duration(file_path, mime_type)
 
         if mime_type and mime_type.startswith("video/"):
+            subtitle_info = self._get_subtitle_info(file_path)
+            subtitle_attributes = ""
+            subtitle_resource = ""
+            subtitle_element = ""
+            if subtitle_info:
+                escaped_subtitle_url = html.escape(subtitle_info["url"], quote=True)
+                subtitle_attributes = (
+                    ' pv:subtitleFileType="SRT"'
+                    f' pv:subtitleFileUri="{escaped_subtitle_url}"'
+                )
+                subtitle_resource = (
+                    f'    <res protocolInfo="http-get:*:{SUBTITLE_MIME_TYPE}:*">'
+                    f"{escaped_subtitle_url}</res>\n"
+                )
+                subtitle_element = (
+                    f'    <sec:CaptionInfoEx sec:type="srt">'
+                    f"{escaped_subtitle_url}</sec:CaptionInfoEx>\n"
+                )
+
             if mime_type == "video/mp4":
                 dlna_profile = "DLNA.ORG_PN=AVC_MP4_MP_SD_AAC_MULT5;DLNA.ORG_OP=01;DLNA.ORG_FLAGS=01700000000000000000000000000000"
                 res_attrs = f'size="{file_size}" duration="{duration}" resolution="1280x720" bitrate="4000000"'
@@ -1686,7 +1833,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 f"    <upnp:artist>Unknown Artist</upnp:artist>\n"
                 f"    <upnp:genre>Video</upnp:genre>\n"
                 f"    <dc:description>Video File: {escaped_title}</dc:description>\n"
-                f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
+                f'    <res protocolInfo="{protocol_info}" {res_attrs}'
+                f"{subtitle_attributes}>{file_url}</res>\n"
+                f"{subtitle_resource}"
+                f"{subtitle_element}"
                 f"</item>"
             )
 
