@@ -84,6 +84,17 @@ class CommandTest(unittest.TestCase):
         self.assertEqual(command[command.index("-c:a") + 1], "pcm_s16le")
         self.assertEqual(command[-3:], ["-f", "avi", "pipe:1"])
 
+    def test_fill_crops_widescreen_to_four_by_three(self):
+        profile = dreamcast.parse_profile({"fill": ["1.333"], "mbs": ["40000"]})
+        command = dreamcast.build_command("in.mkv", profile, FULL_HD)
+        video_filter = command[command.index("-vf") + 1]
+        self.assertTrue(video_filter.startswith("crop=1438:1080,scale=640:480"))
+
+    def test_fill_leaves_narrow_pictures_alone(self):
+        info, crop = dreamcast.crop_to_fill(DVD_43, 1.333)
+        self.assertEqual(crop, "")
+        self.assertIs(info, DVD_43)
+
     def test_audio_only(self):
         command = dreamcast.build_command("song.flac", dreamcast.parse_profile({}), None)
         self.assertIn("-vn", command)

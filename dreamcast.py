@@ -11,7 +11,8 @@ hands audio straight to the AICA sound chip, which plays Yamaha ADPCM and
   the size, but the AICA can't resume it mid-stream after a pause)
 
 The client seeks by asking for the stream again with ?t=<seconds>; d=<seconds>
-limits the length (LemonPlay's decode benchmark uses short clips).
+limits the length (LemonPlay's decode benchmark uses short clips) and
+fill=<aspect> crops wider pictures to that shape (LemonPlay's zoom mode).
 """
 
 import json
@@ -23,16 +24,19 @@ import threading
 DREAMCAST_PATH_PREFIX = "/dreamcast/"
 DREAMCAST_MIME_TYPE = "video/x-msvideo"
 
-# The SH-4 decodes MPEG-1 at a roughly fixed cost per 16x16 macroblock, so
-# the profile is a decode budget: the picture is made as large as fits the
-# Dreamcast's 640x480 output and mb_per_sec. The default is the most real
-# hardware keeps up with (LemonPlay's decode benchmark; see its README).
+# The SH-4 decodes MPEG-1 at a roughly fixed cost per 16x16 macroblock that
+# rises with bitrate (about 26 + 78 * bits_per_pixel microseconds, plus ~25%
+# for networking and drawing during playback). The picture is made as large
+# as fits the Dreamcast's 640x480 output and mb_per_sec. Measured on a real
+# console with LemonPlay's playback benchmark: playback stays smooth while the
+# decoder is under ~80% busy and starts skipping at ~85%. These defaults sit
+# at ~75%: 448x256 for 24 fps widescreen, 384x288 for 4:3.
 # Clients may ask for something else with the query parameters below.
 DEFAULT_PROFILE = {
     "width": 640,
     "height": 480,
-    "mb_per_sec": 7500,
-    "bits_per_pixel": 0.5,
+    "mb_per_sec": 11000,
+    "bits_per_pixel": 0.35,
     "max_fps": 30.0,
     "audio": "pcm",
 }
@@ -172,7 +176,22 @@ def parse_profile(query):
         profile["length"] = max(0.0, float(query.get("d", ["0"])[0]))
     except ValueError:
         profile["length"] = 0.0
+    try:
+        profile["fill"] = min(max(float(query.get("fill", ["0"])[0]), 0.0), 4.0)
+    except ValueError:
+        profile["fill"] = 0.0
     return profile
+
+
+def crop_to_fill(info, fill):
+    """Crop the sides of a picture wider than the fill aspect (e.g. 16:9 to
+    4:3 for LemonPlay's zoom mode). Returns (source info after cropping,
+    ffmpeg crop filter or "")."""
+    if not fill or info["width"] * info["sar"] / info["height"] <= fill + 0.01:
+        return info, ""
+    width = int(info["height"] * fill / info["sar"]) // 2 * 2
+    cropped = dict(info, width=width)
+    return cropped, f"crop={width}:{info['height']},"
 
 
 def output_rate(source_fps, max_fps):
@@ -225,6 +244,7 @@ def build_command(file_path, profile, info):
 
     if info:
         rate, fps = output_rate(info["fps"], profile["max_fps"])
+        info, crop = crop_to_fill(info, profile.get("fill", 0))
         scaled_w, scaled_h, out_w, out_h = output_size(info, profile, fps)
         kbps = max(100, int(out_w * out_h * fps * profile["bits_per_pixel"] / 1000))
         command += [
@@ -233,7 +253,7 @@ def build_command(file_path, profile, info):
             "-map",
             "0:a:0?",
             "-vf",
-            f"scale={scaled_w}:{scaled_h}:flags=lanczos,"
+            f"{crop}scale={scaled_w}:{scaled_h}:flags=lanczos,"
             f"crop={out_w}:{out_h},setsar=1,format=yuv420p",
             "-r",
             rate,
