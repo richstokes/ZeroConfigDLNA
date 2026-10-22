@@ -70,3 +70,13 @@ Feel free to open an issue with the log output if you run into problems and I'll
 ### External subtitles
 
 UTF-8 SubRip (`.srt`) sidecar subtitles are advertised to compatible players using common Samsung and Panasonic-style DLNA extensions. Put the subtitle beside the video and use the same base name, for example `Movie.mkv` with `Movie.srt`. Language-tagged names such as `Movie.en.srt` are also detected. Subtitle support ultimately depends on the receiving player.
+
+### Dreamcast mode
+
+`--dreamcast-mode` adds a live transcode of every video and audio file that a Sega Dreamcast running [LemonPlay](https://github.com/richstokes/dreamcast-homebrew/tree/main/projects/apps/lemonplay) can play. It needs `ffmpeg` and `ffprobe` on your PATH (`brew install ffmpeg`).
+
+```bash
+python app.py --dreamcast-mode -d /path/to/your/media
+```
+
+Other players still get the original files; the transcode is an extra resource on each item. Video is MPEG-1 sized for what the Dreamcast's CPU can decode in real time, with 16-bit PCM stereo audio.

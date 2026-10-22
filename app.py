@@ -18,6 +18,7 @@ try:  # Hacky but needed to support both package and module imports
     )
     from .dlna import DLNAHandler
     from .ssdp import SSDPServer
+    from .dreamcast import ffmpeg_available as dreamcast_available
 except ImportError:
     from constants import (
         SERVER_NAME,
@@ -28,6 +29,7 @@ except ImportError:
     )
     from dlna import DLNAHandler
     from ssdp import SSDPServer
+    from dreamcast import ffmpeg_available as dreamcast_available
 
 
 class ZeroConfigDLNA:
@@ -45,6 +47,7 @@ class ZeroConfigDLNA:
         verbose=False,
         server_name=None,
         fast=False,
+        dreamcast_mode=False,
     ):
         self.server_name = server_name
         self.version = SERVER_VERSION
@@ -56,6 +59,7 @@ class ZeroConfigDLNA:
         self.server_thread = None
         self.verbose = verbose
         self.fast = fast
+        self.dreamcast_mode = dreamcast_mode
         socket.setdefaulttimeout(60)  # 60 seconds timeout
 
         # Generate UUID based on directory content hash
@@ -155,6 +159,7 @@ class ZeroConfigDLNA:
             verbose = server_ref.verbose
             server_name = self.server_name
             fast = server_ref.fast
+            dreamcast_mode = server_ref.dreamcast_mode
 
         return Handler
 
@@ -164,6 +169,11 @@ class ZeroConfigDLNA:
             print(f"{self.server_name} v{self.version} is starting...")
             print(f"Media directory: {os.path.abspath(self.media_directory)}")
             print(f"Server IP: {self.server_ip}")
+            if self.dreamcast_mode:
+                if not dreamcast_available():
+                    print("Error: --dreamcast-mode needs ffmpeg and ffprobe on the PATH")
+                    return False
+                print("Dreamcast mode: offering live transcodes for LemonPlay")
 
             if not os.path.exists(self.media_directory):
                 print(
@@ -413,6 +423,15 @@ def main():
         help="Disable ffprobe and mediainfo subprocess calls for faster operation and wider compatibility",
     )
 
+    parser.add_argument(
+        "--dreamcast-mode",
+        "--dreamcast",
+        dest="dreamcast_mode",
+        action="store_true",
+        help="Also offer every video and audio file as a live ffmpeg transcode "
+        "that a Sega Dreamcast running LemonPlay can play (needs ffmpeg)",
+    )
+
     args = parser.parse_args()
 
     server = ZeroConfigDLNA(
@@ -421,6 +440,7 @@ def main():
         verbose=args.verbose,
         server_name=args.server_name,
         fast=args.fast,
+        dreamcast_mode=args.dreamcast_mode,
     )
     server.run()
 

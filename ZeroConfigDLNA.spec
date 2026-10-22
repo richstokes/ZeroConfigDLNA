@@ -12,7 +12,8 @@ a = Analysis(
         ('ssdp.py', '.'),
         ('mime.types', '.'),
         ('custom_mimetypes.py', '.'),
-        ('helpers.py', '.')
+        ('helpers.py', '.'),
+        ('dreamcast.py', '.')
     ],
     hiddenimports=[],
     hookspath=[],

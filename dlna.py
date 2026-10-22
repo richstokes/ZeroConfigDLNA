@@ -36,7 +36,7 @@ except ImportError:
         create_directory_mapping,
     )
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import unquote, urlparse, quote
+from urllib.parse import unquote, urlparse, quote, parse_qs
 
 try:
     from .constants import (
@@ -47,6 +47,7 @@ try:
         is_supported_media_file,
     )
     from .custom_mimetypes import CustomMimeTypes
+    from . import dreamcast
 except ImportError:
     from constants import (
         SERVER_AGENT,
@@ -56,6 +57,7 @@ except ImportError:
         is_supported_media_file,
     )
     from custom_mimetypes import CustomMimeTypes
+    import dreamcast
 
 # Create a global instance of CustomMimeTypes
 custom_mimetypes = CustomMimeTypes()
@@ -79,6 +81,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
     verbose = False  # Verbose logging flag
     server_name = None  # Server name, set by the server instance
     fast = False  # Fast mode flag to disable subprocess calls
+    dreamcast_mode = False  # Offer live transcodes for Dreamcast clients
 
     def __init__(self, *args, **kwargs):
         # Set default timeout for socket operations (30 minutes)
@@ -152,6 +155,13 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 self.serve_media_file(path[7:])  # Remove '/media/' prefix
             elif path.startswith("/subtitles/"):
                 self.serve_subtitle_file(path[11:])
+            elif self.dreamcast_mode and path.startswith(
+                dreamcast.DREAMCAST_PATH_PREFIX
+            ):
+                self.serve_dreamcast_stream(
+                    path[len(dreamcast.DREAMCAST_PATH_PREFIX) :],
+                    parse_qs(parsed_path.query),
+                )
             else:
                 self.send_error(404, "File not found")
         except (BrokenPipeError, ConnectionResetError):
@@ -185,6 +195,14 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 )  # Remove '/media/' prefix
             elif path.startswith("/subtitles/"):
                 self.serve_subtitle_file(path[11:], head_only=True)
+            elif self.dreamcast_mode and path.startswith(
+                dreamcast.DREAMCAST_PATH_PREFIX
+            ):
+                self.serve_dreamcast_stream(
+                    path[len(dreamcast.DREAMCAST_PATH_PREFIX) :],
+                    parse_qs(parsed_path.query),
+                    head_only=True,
+                )
             else:
                 self.send_error(404, "File not found")
         except (BrokenPipeError, ConnectionResetError):
@@ -567,6 +585,29 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 self.send_error(500, f"Error serving subtitle: {str(e)}")
             except (BrokenPipeError, ConnectionResetError):
                 return
+
+    def serve_dreamcast_stream(self, relative_path, query, head_only=False):
+        """Serve a live transcode that a Dreamcast running LemonPlay can play."""
+        file_path = os.path.join(self.server_instance.media_directory, relative_path)
+        if not is_safe_path(self.server_instance.media_directory, file_path):
+            self.send_error(403, "Access denied")
+            print(f"SECURITY WARNING: Attempted directory traversal to {file_path}")
+            return
+        mime_type, _ = custom_mimetypes.guess_type(file_path)
+        if (
+            not os.path.isfile(file_path)
+            or not mime_type
+            or not mime_type.startswith(("video/", "audio/"))
+        ):
+            self.send_error(404, "File not found")
+            return
+
+        if not head_only:
+            self.now_playing = os.path.basename(relative_path)
+            if self.server_instance:
+                self.server_instance.set_now_playing(self.now_playing)
+            print(f"NOW PLAYING (Dreamcast): {self.now_playing}")
+        dreamcast.stream(self, file_path, query, head_only)
 
     def serve_media_file(self, filename, head_only=False):
         """Serve a media file"""
@@ -1732,6 +1773,12 @@ class DLNAHandler(BaseHTTPRequestHandler):
         except Exception:
             return "01:00:00"
 
+    def _dreamcast_resource(self, file_url, duration):
+        """A second <res> for the Dreamcast transcode, after the original."""
+        if not self.dreamcast_mode:
+            return ""
+        return dreamcast.resource_didl(file_url, duration, html.escape)
+
     def _create_media_item_didl(self, file_info, parent_id):
         """Create DIDL-Lite XML for a media item"""
         file_path = file_info["full_path"]
@@ -1835,6 +1882,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 f"    <dc:description>Video File: {escaped_title}</dc:description>\n"
                 f'    <res protocolInfo="{protocol_info}" {res_attrs}'
                 f"{subtitle_attributes}>{file_url}</res>\n"
+                f"{self._dreamcast_resource(file_url, duration)}"
                 f"{subtitle_resource}"
                 f"{subtitle_element}"
                 f"</item>"
@@ -1897,6 +1945,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
                 f"    <upnp:genre>Music</upnp:genre>\n"
                 f"    <dc:date>{dc_date}</dc:date>\n"
                 f'    <res protocolInfo="{protocol_info}" {res_attrs}>{file_url}</res>\n'
+                f"{self._dreamcast_resource(file_url, duration)}"
                 f"</item>"
             )
 
