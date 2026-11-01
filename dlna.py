@@ -1576,7 +1576,7 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header("Content-Type", 'text/xml; charset="utf-8"')
-            self.send_header("Content-Length", str(len(response)))
+            self.send_header("Content-Length", str(len(response.encode("utf-8"))))
             self.send_header("Ext", "")
             self.send_header("Server", SERVER_AGENT)
             # Allow very short-term caching but ensure revalidation with server
