@@ -7,6 +7,7 @@ import unittest
 from unittest.mock import Mock
 
 from dlna import DLNAHandler
+from helpers import send_device_description
 
 
 class MediaResponseTest(unittest.TestCase):
@@ -185,6 +186,57 @@ class SubtitleSupportTest(unittest.TestCase):
             self.handler.response_headers["Content-Type"], "text/srt; charset=utf-8"
         )
         self.assertEqual(self.handler.wfile.getvalue(), b"language subtitle")
+
+
+class ContentLengthTest(unittest.TestCase):
+    """Content-Length must count encoded bytes, not characters."""
+
+    def make_handler(self, media_directory="", path="/browse"):
+        """Build a handler that records headers without a network socket."""
+        handler = DLNAHandler.__new__(DLNAHandler)
+        handler.path = path
+        handler.verbose = False
+        handler.server_name = "Médiatár"
+        handler.server_instance = Mock(
+            media_directory=media_directory,
+            server_ip="127.0.0.1",
+            port=8200,
+            device_uuid="test-uuid",
+        )
+        handler.wfile = io.BytesIO()
+        handler.response_headers = {}
+        handler.send_response = Mock()
+        handler.send_header = handler.response_headers.__setitem__
+        handler.end_headers = Mock()
+        return handler
+
+    def assert_length_matches_body(self, handler):
+        """The declared length equals the number of bytes written."""
+        body = handler.wfile.getvalue()
+        self.assertEqual(handler.response_headers["Content-Length"], str(len(body)))
+
+    def test_device_description_with_non_ascii_server_name(self):
+        """A non-ASCII server name doesn't truncate the device XML."""
+        handler = self.make_handler()
+
+        send_device_description(handler)
+
+        self.assertIn("Médiatár".encode("utf-8"), handler.wfile.getvalue())
+        self.assert_length_matches_body(handler)
+
+    def test_web_ui_with_non_ascii_names(self):
+        """Accented names and the folder icon don't truncate the page."""
+        with tempfile.TemporaryDirectory() as media_directory:
+            os.mkdir(os.path.join(media_directory, "Filmek"))
+            media_path = os.path.join(media_directory, "árvíztűrő.mp4")
+            with open(media_path, "wb") as media_file:
+                media_file.write(b"0")
+            handler = self.make_handler(media_directory)
+
+            handler.send_browse_response()
+
+        self.assertIn("árvíztűrő".encode("utf-8"), handler.wfile.getvalue())
+        self.assert_length_matches_body(handler)
 
 
 if __name__ == "__main__":

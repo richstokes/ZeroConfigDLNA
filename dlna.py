@@ -475,9 +475,10 @@ class DLNAHandler(BaseHTTPRequestHandler):
 
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
-            self.send_header("Content-Length", str(len(html)))
+            body = html.encode("utf-8")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(html.encode())
+            self.wfile.write(body)
 
         except Exception as e:
             self.send_error(500, f"Error reading directory: {str(e)}")
